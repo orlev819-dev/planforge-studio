@@ -29,6 +29,14 @@ npm start            # http://localhost:4173
 
 Playwright needs a Chromium: `npx playwright install chromium`, or set `CHROME_PATH` to an existing Chrome binary.
 
+## Live site (GitHub Pages)
+
+https://orlev819-dev.github.io/planforge-studio/ is served over HTTPS, so Web Bluetooth works there, including in the Bluefy browser on iOS.
+Deploy: `bash scripts/deploy-pages.sh` builds the app and force-pushes the static site to `orlev819-dev/planforge-studio` (`main`, root). Pages rebuilds within about two minutes.
+The repository holds only the built site. Source lives in this monorepo.
+
+Local network server (Windows, no install needed): `server/start-server.bat`, which runs a PowerShell static server on port 8080.
+
 ## Using the editor
 
 - **Rooms:** `R` then drag a rectangle, or click corners and double-click / `Enter` to close a polygon. While drawing, type a length (e.g. `3.6`, `360cm`, `12' 6"`) and press `Enter` to place the next corner exactly. The **Room…** button creates rooms with exact width/length/height, optionally attached to the selected room, which gives you shared walls.
