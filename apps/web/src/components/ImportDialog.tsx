@@ -3,12 +3,13 @@ import { updateFloorProps } from '../../../../packages/geometry/src/index';
 import { editProject, setTool, useStore, currentFloor, toast } from '../store';
 import { useT } from '../i18n';
 import { Modal } from './fields';
+import { pdfWorkerUrl } from 'virtual:pdf-worker';
 
 type PdfDoc = { numPages: number; getPage: (n: number) => Promise<{ getViewport: (o: { scale: number }) => { width: number; height: number }; render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> } }> };
 
 async function loadPdf(data: ArrayBuffer): Promise<PdfDoc> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL('./pdf.worker.min.mjs', location.href).toString();
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl();
   return (await pdfjs.getDocument({ data: new Uint8Array(data) }).promise) as unknown as PdfDoc;
 }
 

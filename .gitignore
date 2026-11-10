@@ -3,3 +3,4 @@ apps/web/dist/
 test-results/
 playwright-report/
 *.log
+standalone/

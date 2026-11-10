@@ -20,6 +20,10 @@ await build({
   jsx: 'automatic', loader: { '.css': 'css' }, logLevel: 'info',
   define: { 'process.env.NODE_ENV': '"production"' },
   nodePaths: [join(root, 'node_modules'), '/opt/npm-tools/node_modules'],
+  plugins: [{ name: 'pdf-worker', setup(b) {
+    b.onResolve({ filter: /^virtual:pdf-worker$/ }, () => ({ path: 'pdf-worker', namespace: 'v' }));
+    b.onLoad({ filter: /.*/, namespace: 'v' }, () => ({ contents: "export const pdfWorkerUrl = () => new URL('./pdf.worker.min.mjs', location.href).toString();", loader: 'js' }));
+  } }],
 });
 
 cpSync(join(root, 'apps/web/public'), out, { recursive: true });
