@@ -135,6 +135,8 @@ export class Viewer3D {
     this.dirty = true;
   }
   setWalk(on: boolean) { this.mode = on ? 'walk' : 'orbit'; if (on) this.projection = 'perspective'; this.dirty = true; this.canvas.focus(); }
+  /** on-screen controls (touch): hold a walk key */
+  setKey(k: string, down: boolean) { if (down) this.keys.add(k); else this.keys.delete(k); this.dirty = true; }
   setWallMode(m: WallMode) { this.wallMode = m; this.dirty = true; }
   setSelected(id: string | null) { this.selectedId = id; this.dirty = true; }
   invalidate() { this.dirty = true; }
@@ -221,13 +223,15 @@ export class Viewer3D {
     let drag: { x: number; y: number; button: number; moved: boolean } | null = null;
     const pointers = new Map<number, { x: number; y: number }>();
     let pinch0 = 0;
+    let mid0: { x: number; y: number } | null = null;
     const on = <K extends keyof HTMLElementEventMap>(el: HTMLElement | Window, ev: K, fn: (e: HTMLElementEventMap[K]) => void, o?: AddEventListenerOptions) => {
       el.addEventListener(ev, fn as EventListener, o); this.disposers.push(() => el.removeEventListener(ev, fn as EventListener));
     };
     on(c, 'contextmenu', (e) => e.preventDefault());
     on(c, 'pointerdown', (e) => {
-      c.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); }
+      try { c.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); mid0 = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
       drag = { x: e.clientX, y: e.clientY, button: e.button === 2 || e.shiftKey ? 2 : 0, moved: false };
     });
     on(c, 'pointermove', (e) => {
@@ -236,6 +240,15 @@ export class Viewer3D {
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
         if (pinch0) { this.distance = Math.min(200, Math.max(1, this.distance * (pinch0 / d))); pinch0 = d; this.dirty = true; }
+        // two-finger drag pans the orbit target
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        if (mid0 && this.mode === 'orbit') {
+          const s = this.distance / (c.clientHeight || 1), ddx = mid.x - mid0.x, ddy = mid.y - mid0.y;
+          this.target[0] -= (ddx * Math.cos(this.yaw) + ddy * Math.sin(this.yaw)) * s;
+          this.target[2] -= (-ddx * Math.sin(this.yaw) + ddy * Math.cos(this.yaw)) * s;
+        }
+        mid0 = mid;
+        if (drag) drag.moved = true;
         return;
       }
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
@@ -251,7 +264,7 @@ export class Viewer3D {
       this.dirty = true;
     });
     on(c, 'pointerup', (e) => {
-      pointers.delete(e.pointerId); if (pointers.size < 2) pinch0 = 0;
+      pointers.delete(e.pointerId); if (pointers.size < 2) { pinch0 = 0; mid0 = null; }
       if (drag && !drag.moved && this.onPick) { const id = this.pick(e.clientX, e.clientY); this.selectedId = id; this.onPick(id); }
       drag = null;
     });

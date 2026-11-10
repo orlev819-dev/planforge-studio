@@ -19,7 +19,8 @@ const r = await build({
 const js = r.outputFiles.find((f) => f.path.endsWith('.js')).text.replace(/<\/script/gi, '<\\/script');
 const css = r.outputFiles.find((f) => f.path.endsWith('.css'))?.text ?? '';
 const icon = 'data:image/svg+xml;base64,' + Buffer.from(readFileSync(join(root, 'apps/web/public/icon.svg'))).toString('base64');
-const html = `<!doctype html><html lang="en" dir="ltr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PlanForge Studio</title><link rel="icon" href="${icon}"><style>${css}</style></head><body><div id="root"></div><script type="module">${js}</script></body></html>`;
+const touch = 'data:image/png;base64,' + Buffer.from(readFileSync(join(root, 'apps/web/public/icon-180.png'))).toString('base64');
+const html = `<!doctype html><html lang="en" dir="ltr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="PlanForge"><title>PlanForge Studio</title><link rel="icon" href="${icon}"><link rel="apple-touch-icon" href="${touch}"><style>${css}</style></head><body><div id="root"></div><script type="module">${js}</script></body></html>`;
 mkdirSync(join(root, 'standalone'), { recursive: true });
 writeFileSync(join(root, 'standalone/PlanForge Studio.html'), html);
 console.log('standalone', (html.length / 1e6).toFixed(2), 'MB');

@@ -66,7 +66,7 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 |---|---|
 | Chromium 153 (desktop) | Tested (headless, SwiftShader WebGL) |
 | Firefox / Safari desktop | Expected to work (standard APIs only); **not tested** |
-| iPad / Android tablets | Touch, pinch and responsive layout implemented; **not tested on devices** |
+| iPad (Safari, home-screen app) | Dedicated touch UI: icon rail, 44 px+ targets, 16 px inputs (no focus zoom), properties drawer in portrait / docked in landscape, long-press context menu, one-finger pan + pinch, tap-to-draw with Finish/Undo/Cancel bar, typed-length + direction buttons (and laser) instead of keyboard, 3D two-finger pan + on-screen walk pad, safe areas, apple-touch-icon + home-screen meta. Tested in Chromium iPad emulation (portrait 820×1180, landscape 1180×820); **not yet on a physical iPad / WebKit**. Bluetooth on iPad only via Bluefy. |
 | Bosch GLM 50-27 C/CG | Chrome/Edge (Web Bluetooth); Firefox/Safari have no Web Bluetooth |
 | LiDAR / RoomPlan / ARCore / other lasers | **Not supported** in this build |
 

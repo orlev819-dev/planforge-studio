@@ -33,12 +33,16 @@ export function Editor() {
   const canRedo = useStore((s) => s.future.length > 0);
   const [dialog, setDialog] = useState<null | 'export' | 'room' | 'import' | 'share' | 'versions' | 'layers'>(null);
   const [side, setSide] = useState<'props' | 'library'>('props');
+  // iPad portrait / narrow touch screens: the side panel is a slide-over drawer
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [calib, setCalib] = useState<{ a: Vec2; b: Vec2 } | null>(null);
 
   const selection = useStore((s) => s.selection);
-  useEffect(() => { if (tool === 'furniture') setSide('library'); }, [tool]);
+  useEffect(() => { if (tool === 'furniture') { setSide('library'); setDrawerOpen(true); } }, [tool]);
   // after placing / picking something, show its properties
-  useEffect(() => { if (selection.length && tool !== 'furniture') setSide('props'); }, [selection]); // eslint-disable-line
+  useEffect(() => { if (selection.length && tool !== 'furniture') { setSide('props'); setDrawerOpen(true); } else if (!selection.length && tool !== 'furniture') setDrawerOpen(false); }, [selection]); // eslint-disable-line
+  // switching 2D/3D/Split should never leave the drawer covering the new view
+  useEffect(() => { setDrawerOpen(false); }, [view]);
   if (!project || !floor) return null;
 
   const saveLabel = save === 'saving' ? t('saving') : save === 'dirty' ? t('unsaved') : save === 'error' ? t('saveError') : t('saved');
@@ -48,15 +52,15 @@ export function Editor() {
         <button className="icon-btn" onClick={() => go({ page: 'dashboard' })} title={t('dashboard')} aria-label={t('dashboard')}>←</button>
         <input className="project-name" data-testid="project-title" value={project.name} onChange={(e) => setState({ project: { ...project, name: e.target.value } })} onBlur={(e) => editProject('Rename project', (p) => ({ ...p, name: e.target.value.trim() || p.name }))} />
         <div className="sep" />
-        <button className="btn sm" data-testid="undo" disabled={!canUndo} onClick={undo} title="Ctrl+Z">↶ {t('undo')}</button>
-        <button className="btn sm" data-testid="redo" disabled={!canRedo} onClick={redo} title="Ctrl+Shift+Z">↷ {t('redo')}</button>
+        <button className="btn sm" data-testid="undo" disabled={!canUndo} onClick={undo} title="Ctrl+Z">↶ <span className="lbl">{t('undo')}</span></button>
+        <button className="btn sm" data-testid="redo" disabled={!canRedo} onClick={redo} title="Ctrl+Shift+Z">↷ <span className="lbl">{t('redo')}</span></button>
         <span className={`save-state ${save}`} data-testid="save-state">{saveLabel}</span>
         <div className="sep" />
         <FloorSelector />
         <div className="seg" role="tablist">
           {(['2d', '3d', 'split'] as const).map((v) => <button key={v} role="tab" data-testid={`view-${v}`} className={view === v ? 'on' : ''} onClick={() => setState({ view: v })}>{t(v === '2d' ? 'view2d' : v === '3d' ? 'view3d' : 'split')}</button>)}
         </div>
-        <div className="seg">
+        <div className="seg zoom-seg">
           <button onClick={() => window.dispatchEvent(new CustomEvent('planforge:zoom', { detail: 1 / 1.25 }))} aria-label="zoom out">−</button>
           <button onClick={() => window.dispatchEvent(new Event('planforge:fit'))}>{t('fitView')}</button>
           <button onClick={() => window.dispatchEvent(new CustomEvent('planforge:zoom', { detail: 1.25 }))} aria-label="zoom in">+</button>
@@ -66,8 +70,9 @@ export function Editor() {
         <button className="btn sm" onClick={() => setDialog('versions')}>{t('versions')}</button>
         <button className="btn sm" onClick={() => setDialog('share')}>{t('share')}</button>
         <button className="btn sm primary" data-testid="export-open" onClick={() => setDialog('export')}>{t('export')}</button>
+        <button className={`btn sm drawer-toggle ${drawerOpen ? 'on' : ''}`} data-testid="drawer-toggle" onClick={() => setDrawerOpen(!drawerOpen)} aria-expanded={drawerOpen}>☰ {t('inspector')}</button>
       </div>
-      <div className="editor-main">
+      <div className={`editor-main ${drawerOpen ? 'drawer-open' : ''}`}>
         <div className="toolbar" role="toolbar">
           {TOOLS.map((tl) => (
             <button key={tl.id} data-testid={`tool-${tl.id}`} className={tool === tl.id ? 'on' : ''} title={`${t(tl.key)}${tl.kbd ? ` (${tl.kbd})` : ''}`} onClick={() => setTool(tl.id)}>
@@ -83,7 +88,8 @@ export function Editor() {
           {view !== '3d' && <div className="stage-2d"><Canvas2D floor={floor} onCalibrate={(a, b) => setCalib({ a, b })} /></div>}
           {view !== '2d' && <div className="stage-3d"><Viewer3DView /></div>}
         </div>
-        <aside className="sidebar">
+        <aside className="sidebar" data-testid="sidebar">
+          <button className="icon-btn drawer-close" data-testid="drawer-close" onClick={() => setDrawerOpen(false)} aria-label={t('close')}>✕</button>
           <div className="seg full">
             <button className={side === 'props' ? 'on' : ''} onClick={() => setSide('props')}>{t('inspector')}</button>
             <button className={side === 'library' ? 'on' : ''} data-testid="tab-library" onClick={() => setSide('library')}>{t('furniture')}</button>
@@ -132,7 +138,7 @@ function StatusBar() {
   return (
     <div className="statusbar" data-testid="statusbar">
       <span>{t('scale')} ≈ 1:{denom}</span>
-      <span data-testid="cursor-pos" dir="ltr">{cursor ? `X ${fmt(cursor.x)}  Y ${fmt(cursor.y)}` : '—'}</span>
+      <span className="cursor-pos" data-testid="cursor-pos" dir="ltr">{cursor ? `X ${fmt(cursor.x)}  Y ${fmt(cursor.y)}` : '—'}</span>
       <label>{t('units')} <select data-testid="unit-select" value={project.settings.unit} onChange={(e) => set({ unit: e.target.value as typeof project.settings.unit })}><option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option><option value="ft-in">ft-in</option></select></label>
       <label>{t('precision')} <select value={project.settings.precision} onChange={(e) => set({ precision: Number(e.target.value) })}>{[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
       <label className="check"><input type="checkbox" checked={project.settings.snap} onChange={(e) => set({ snap: e.target.checked })} /> {t('snap')}</label>

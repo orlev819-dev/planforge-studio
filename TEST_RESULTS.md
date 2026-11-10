@@ -7,7 +7,7 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
 | Unit tests (geometry, export, laser, ceilings, model import) | `npm test` | ✅ 39 / 39 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium) | `npm run test:e2e` | ✅ 9 / 9 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 15 / 15 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -34,6 +34,10 @@ E2E (1): draw zone with the tool → default 30 cm below ceiling → set 2.35 m 
 ## Model import tests
 Unit (5): binary = ASCII STL · OBJ quads / negative indices / v/vt/vn · mm→m, Z-up→Y-up, centring, hull · placed model scaled + rotated in 3D, 2D footprint, GLB export, JSON round-trip · unit auto-detect.
 E2E (1): upload STL (mm) → detected 0.600 × 0.400 × 0.750 m → place → 3D part → persists after reload.
+
+## iPad tests (6, Chromium with touch + coarse pointer)
+Portrait: icon rail, ≥44 px tools, drawer hidden → opens on selection → closes, 16 px inputs · tap 4 corners + Finish → 6.00 m² · typed length + direction buttons → 13.02 m² · long-press context menu, one-finger pan (exact offset, geometry untouched) · 3D walk pad. Landscape: docked panel, apple-touch-icon PNG + home-screen meta.
+Not covered: real WebKit/Safari, Apple Pencil, iOS on-screen keyboard behaviour.
 
 ## End-to-end tests (9)
 1. **Primary acceptance (§23):** new project “My Apartment” → Floor 1 (+ add floor) → draw a room with the mouse →

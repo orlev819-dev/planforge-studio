@@ -70,6 +70,15 @@ export function Viewer3DView() {
         <span className="muted sm" data-testid="viewer-stats">{stats.parts} parts</span>
       </div>
       <canvas ref={ref} className="viewer-canvas" data-testid="viewer-canvas" />
+      {walk && (
+        <div className="walk-pad" data-testid="walk-pad" aria-label="walk controls">
+          {([['w', '▲', 'up'], ['arrowleft', '⟲', 'tl'], ['a', '◀', 'left'], ['d', '▶', 'right'], ['arrowright', '⟳', 'tr'], ['s', '▼', 'down']] as const).map(([k, lbl, cls]) => (
+            <button key={k} className={`wp ${cls}`} data-testid={`walk-${k}`}
+              onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); viewer.current?.setKey(k, true); }}
+              onPointerUp={() => viewer.current?.setKey(k, false)} onPointerCancel={() => viewer.current?.setKey(k, false)} onPointerLeave={() => viewer.current?.setKey(k, false)}>{lbl}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

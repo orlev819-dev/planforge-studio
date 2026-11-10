@@ -73,6 +73,12 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   const pinch = useRef<{ d: number; cx: number; cy: number } | null>(null);
   const space = useRef(false);
   const fitted = useRef<string | null>(null);
+  // touch / Apple Pencil support
+  const ptype = useRef<string>('mouse');
+  const longPress = useRef<{ timer: ReturnType<typeof setTimeout> | null; sx: number; sy: number; fired: boolean }>({ timer: null, sx: 0, sy: 0, fired: false });
+  const [barLen, setBarLen] = useState('');
+  const coarse = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+  const touchK = () => (ptype.current === 'touch' ? 2.2 : 1);
 
   const shown = preview ?? floor;
   const assets = useStore((s) => s.project!.assets);
@@ -119,7 +125,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   function snap(w: Vec2, o: { exclude?: ID; anchor?: Vec2 | null; alt?: boolean } = {}): Snap {
     const s = getState().project!.settings;
     if (!s.snap || o.alt) return { p: w, kind: 'none', guides: [] };
-    const tol = px(10);
+    const tol = px(10 * touchK());
     let best: { p: Vec2; d: number; kind: Snap['kind'] } | null = null;
     for (const v of Object.values(shown.vertices)) {
       if (v.id === o.exclude) continue;
@@ -167,7 +173,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   }
 
   function hitTest(w: Vec2, f: Floor = shown, opts: { wallsOnly?: boolean; vertices?: boolean } = {}): Hit | null {
-    const tol = px(7);
+    const tol = px(7 * touchK());
     if (opts.wallsOnly) {
       let best: { id: ID; t: number; d: number } | null = null;
       for (const wl of Object.values(f.walls)) {
@@ -346,9 +352,10 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   useEffect(() => {
     setCanvasLaserHandler((L) => {
       const anchor = wallStart ?? (poly.length ? poly[poly.length - 1] : null);
-      if (!anchor || !hover) return false;
+      if (!anchor) return false;
+      if (!hover || ptype.current !== 'mouse') { setBarLen(String(+L.toFixed(4))); return true; }
       const d = norm(sub(hover.snap.p, anchor));
-      if (!d.x && !d.y) return false;
+      if (!d.x && !d.y) { setBarLen(String(+L.toFixed(4))); return true; }
       const p = { x: +(anchor.x + d.x * L).toFixed(6), y: +(anchor.y + d.y * L).toFixed(6) };
       if (wallStart) { if (editFloor('Draw wall (laser)', (f) => addPartitionWall(f, wallStart, p).floor)) setWallStart(p); }
       else setPoly((ps) => [...ps, p]);
@@ -357,16 +364,55 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     return () => setCanvasLaserHandler(null);
   });
 
+  /** place the next wall/room corner at the typed (or laser) length in a fixed direction — for touch, no keyboard */
+  function placeDir(dx: number, dy: number) {
+    const anchor = wallStart ?? (poly.length ? poly[poly.length - 1] : null);
+    if (!anchor) return;
+    const L = parseLength(barLen, getState().project!.settings.unit === 'ft-in' ? 'ft-in' : getState().project!.settings.unit);
+    if (!L || L <= 0) { toast(t('enterLength'), 'error'); return; }
+    const p = { x: +(anchor.x + dx * L).toFixed(6), y: +(anchor.y + dy * L).toFixed(6) };
+    if (wallStart) { if (editFloor('Draw wall', (f) => addPartitionWall(f, wallStart, p).floor)) setWallStart(p); }
+    else if (poly.length >= 3 && dist(p, poly[0]) < 1e-3) finishPolygon(poly);
+    else setPoly((ps) => [...ps, p]);
+    setBarLen('');
+  }
+
+  // Safari: stop page-level pinch zoom / magnifier gestures over the plan
+  useEffect(() => {
+    const el = wrapRef.current; if (!el) return;
+    const stop = (e: Event) => e.preventDefault();
+    el.addEventListener('gesturestart', stop); el.addEventListener('gesturechange', stop);
+    return () => { el.removeEventListener('gesturestart', stop); el.removeEventListener('gesturechange', stop); };
+  }, []);
+
   // ------------------------------------------------------------------ pointer events
   const local = (e: { clientX: number; clientY: number }) => { const r = canvasRef.current!.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
 
   function onPointerDown(e: React.PointerEvent) {
     setMenu(null);
     const c = canvasRef.current!;
-    c.setPointerCapture(e.pointerId);
+    try { c.setPointerCapture(e.pointerId); } catch { /* synthetic / already released pointer */ }
     const s = local(e);
+    ptype.current = e.pointerType || 'mouse';
     pointers.current.set(e.pointerId, s);
+    if (longPress.current.timer) clearTimeout(longPress.current.timer);
+    longPress.current = { timer: null, sx: s.x, sy: s.y, fired: false };
+    if (e.pointerType !== 'mouse' && pointers.current.size === 1) {
+      // long-press = context menu (no right-click on iPad)
+      longPress.current.timer = setTimeout(() => {
+        longPress.current.timer = null;
+        if (pointers.current.size !== 1) return;
+        longPress.current.fired = true;
+        inter.current = null; setPreview(null); setDragError(null);
+        const w0 = toWorld(view.current, s.x, s.y);
+        const hit = hitTest(w0);
+        if (hit && !getState().selection.includes(hit.id)) select([hit.id]);
+        setMenu({ x: s.x, y: s.y, hit, world: w0 });
+        try { navigator.vibrate?.(15); } catch { /* not supported */ }
+      }, 550);
+    }
     if (pointers.current.size === 2) {
+      if (longPress.current.timer) { clearTimeout(longPress.current.timer); longPress.current.timer = null; }
       const [a, b] = [...pointers.current.values()];
       pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
       inter.current = { kind: 'pan', sx: pinch.current.cx, sy: pinch.current.cy, ox: view.current.ox, oy: view.current.oy };
@@ -380,7 +426,10 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     switch (tool) {
       case 'select': {
         const hit = hitTest(w);
-        if (!hit) { inter.current = { kind: 'marquee', start: w, sx: s.x, sy: s.y, additive: e.shiftKey }; if (!e.shiftKey) select([]); return; }
+        if (!hit) {
+          if (e.pointerType === 'touch') { inter.current = { kind: 'pan', sx: s.x, sy: s.y, ox: view.current.ox, oy: view.current.oy }; select([]); return; }
+          inter.current = { kind: 'marquee', start: w, sx: s.x, sy: s.y, additive: e.shiftKey }; if (!e.shiftKey) select([]); return;
+        }
         const id = hit.id;
         if (hit.type !== 'vertex' && hit.type !== 'rotate-handle' && hit.type !== 'resize-handle') {
           const cur = getState().selection;
@@ -464,6 +513,8 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   function onPointerMove(e: React.PointerEvent) {
     const s = local(e);
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, s);
+    if (longPress.current.timer && Math.hypot(s.x - longPress.current.sx, s.y - longPress.current.sy) > 8) { clearTimeout(longPress.current.timer); longPress.current.timer = null; }
+    if (longPress.current.fired) return;
     const it = inter.current;
     if (pointers.current.size === 2 && pinch.current) {
       const [a, b] = [...pointers.current.values()];
@@ -529,6 +580,8 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   function onPointerUp(e: React.PointerEvent) {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
+    if (longPress.current.timer) { clearTimeout(longPress.current.timer); longPress.current.timer = null; }
+    if (longPress.current.fired) { if (!pointers.current.size) longPress.current.fired = false; inter.current = null; return; }
     const it = inter.current;
     inter.current = null;
     if (!it) return;
@@ -660,7 +713,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
 
     const S = (p: Vec2) => toScreen(v, p);
     // selection handles
-    const handle = (p: Vec2, color = '#1d7cf2', size = 7) => { const s = S(p); ctx.fillStyle = '#fff'; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.fillRect(s.x - size / 2, s.y - size / 2, size, size); ctx.strokeRect(s.x - size / 2, s.y - size / 2, size, size); };
+    const handle = (p: Vec2, color = '#1d7cf2', size = coarse ? 13 : 7) => { const s = S(p); ctx.fillStyle = '#fff'; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.fillRect(s.x - size / 2, s.y - size / 2, size, size); ctx.strokeRect(s.x - size / 2, s.y - size / 2, size, size); };
     for (const id of selection) {
       const r = shown.rooms[id]; if (r) roomPoints(shown, r).forEach((p) => handle(p));
       const vv = shown.vertices[id]; if (vv) handle(vv, '#e8590c', 9);
@@ -757,7 +810,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     if (hover) { const s = S(hover.snap.p); ctx.strokeStyle = '#e8590c'; ctx.beginPath(); ctx.moveTo(s.x, 0); ctx.lineTo(s.x, R); ctx.moveTo(0, s.y); ctx.lineTo(R, s.y); ctx.stroke(); }
   });
 
-  const hint = tool === 'ceiling' ? t('hintCeiling') : tool === 'room' ? t('hintRoom') : tool === 'wall' ? t('hintWall') : ['door', 'window', 'opening'].includes(tool) ? t('hintOpening') : tool === 'furniture' ? t('hintFurniture') : tool === 'dimension' ? t('hintDimension') : tool === 'corner' ? t('hintCorner') : tool === 'calibrate' ? t('calibrateHint') : null;
+  const hint = tool === 'ceiling' ? t('hintCeiling') : tool === 'room' ? t(coarse ? 'hintRoomTouch' : 'hintRoom') : tool === 'wall' ? t(coarse ? 'hintWallTouch' : 'hintWall') : ['door', 'window', 'opening'].includes(tool) ? t('hintOpening') : tool === 'furniture' ? t('hintFurniture') : tool === 'dimension' ? t('hintDimension') : tool === 'corner' ? t('hintCorner') : tool === 'calibrate' ? t('calibrateHint') : null;
   const cursor = tool === 'pan' || inter.current?.kind === 'pan' ? 'grab' : tool === 'select' ? (hover?.hit ? (hover.hit.type === 'room' || hover.hit.type === 'furniture' || hover.hit.type === 'wall' ? 'move' : 'pointer') : 'default') : 'crosshair';
 
   const menuItems = (() => {
@@ -782,11 +835,25 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       <canvas
         ref={canvasRef} className="plan-canvas" data-testid="plan-canvas" style={{ cursor }}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
-        onPointerLeave={() => { setHover(null); setState({ cursor: null }); }}
+        onPointerLeave={(e) => { if (e.pointerType === 'mouse') { setHover(null); setState({ cursor: null }); } }}
         onDoubleClick={onDoubleClick} onWheel={onWheel} onContextMenu={onContextMenu}
         onDragOver={(e) => e.preventDefault()} onDrop={onDrop}
       />
       {hint && <div className="canvas-hint">{hint}{typed && <b> ⌨ {typed}</b>}</div>}
+      {(poly.length > 0 || wallStart || dimStart || calib.length > 0) && (
+        <div className="draw-bar" data-testid="draw-bar" onPointerDown={(e) => e.stopPropagation()}>
+          {(poly.length > 0 || wallStart) && <>
+            <input className="bar-len" data-testid="bar-length" inputMode="decimal" placeholder={t('length')} value={barLen} onChange={(e) => setBarLen(e.target.value)} />
+            {([['→', 1, 0], ['↓', 0, 1], ['←', -1, 0], ['↑', 0, -1]] as const).map(([lbl, dx, dy]) => (
+              <button key={lbl} className="btn" data-testid={`bar-dir-${dx}${dy}`} title={t('placeNext')} onClick={() => placeDir(dx, dy)}>{lbl}</button>
+            ))}
+          </>}
+          {poly.length > 0 && <button className="btn" data-testid="bar-undo-point" onClick={() => setPoly((ps) => ps.slice(0, -1))}>↶ {t('undoPoint')}</button>}
+          {poly.length >= 3 && <button className="btn primary" data-testid="bar-finish" onClick={() => finishPolygon(poly)}>✓ {t('finish')}</button>}
+          {wallStart && <button className="btn primary" data-testid="bar-done" onClick={() => setWallStart(null)}>✓ {t('finish')}</button>}
+          <button className="btn" data-testid="bar-cancel" onClick={() => { setPoly([]); setWallStart(null); setDimStart(null); setCalib([]); setTyped(''); setBarLen(''); }}>✕ {t('cancel')}</button>
+        </div>
+      )}
       {dragError && <div className="canvas-error" role="alert">{dragError}</div>}
       {menu && menuItems.length > 0 && (
         <div className="ctx-menu" style={{ left: menu.x, top: menu.y }} onPointerDown={(e) => e.stopPropagation()}>
