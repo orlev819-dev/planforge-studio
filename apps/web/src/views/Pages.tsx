@@ -6,6 +6,7 @@ import { go, persistProject, setState, useStore, toast } from '../store';
 import { useT } from '../i18n';
 import { LibraryPanel } from '../components/LibraryPanel';
 import { download, safeName } from '../components/fields';
+import { BUILD_ID } from '../build';
 
 export function LibraryPage() {
   const { t } = useT();
@@ -71,6 +72,7 @@ export function SettingsPage() {
       <hr />
       <button className="btn" onClick={demo}>Create demo project (labelled as demo)</button>
       <hr />
+      <p className="muted" data-testid="build-id">Build: {BUILD_ID}</p>
       <h3>Build capability status</h3>
       <ul className="caps">
         <li>✓ 2D editor, geometry kernel, 3D (WebGL), IndexedDB autosave, undo/redo, version snapshots</li>

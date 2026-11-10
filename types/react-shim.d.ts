@@ -16,3 +16,4 @@ declare module 'react/jsx-runtime' { export const jsx: any; export const jsxs: a
 declare namespace JSX { interface IntrinsicElements { [k: string]: any } interface IntrinsicAttributes { key?: any } interface Element {} interface ElementChildrenAttribute { children: {} } }
 declare module '*.css';
 declare module 'virtual:pdf-worker' { export function pdfWorkerUrl(): string }
+declare const __BUILD_ID__: string;
