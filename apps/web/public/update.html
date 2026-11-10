@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>PlanForge Studio — עדכון</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #eef1f6; color: #15202b;
+    font: 16px/1.5 system-ui, "Segoe UI", Arial, sans-serif; padding: 24px; }
+  @media (prefers-color-scheme: dark) { body { background: #0f141b; color: #e6ebf2; } .card { background: #171d26 !important; border-color: #2a3342 !important; } }
+  .card { background: #fff; border: 1px solid #e2e7f0; border-radius: 16px; padding: 24px; max-width: 420px; width: 100%;
+    box-shadow: 0 10px 30px rgba(16,24,40,.12); text-align: center; }
+  h1 { font-size: 19px; margin: 0 0 10px; }
+  p { margin: 8px 0; } .muted { color: #697586; font-size: 14px; }
+  a.btn { display: inline-block; margin-top: 14px; background: #1d7cf2; color: #fff; text-decoration: none;
+    padding: 12px 20px; border-radius: 12px; font-weight: 600; }
+  code { background: rgba(127,127,127,.15); padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <h1>מעדכן את PlanForge Studio</h1>
+    <p id="status">מנקה גרסאות שמורות…</p>
+    <p class="muted">הפרויקטים השמורים שלך נשארים. מתנקים רק קבצי התוכנה הישנים.</p>
+    <p class="muted" id="detail"></p>
+    <a class="btn" id="go" href="./">פתח את האפליקציה</a>
+  </main>
+<script>
+(function () {
+  var status = document.getElementById('status');
+  var detail = document.getElementById('detail');
+  var go = document.getElementById('go');
+  var target = './?u=' + Date.now();
+  go.href = target;
+  function finish(msg) {
+    status.textContent = msg;
+    setTimeout(function () { location.replace(target); }, 900);
+  }
+  var steps = [];
+  var work = Promise.resolve();
+  if ('serviceWorker' in navigator) {
+    work = work.then(function () { return navigator.serviceWorker.getRegistrations(); })
+      .then(function (rs) {
+        steps.push('service workers: ' + rs.length);
+        return Promise.all(rs.map(function (r) { return r.unregister(); }));
+      });
+  } else steps.push('service workers: not supported');
+  if (window.caches) {
+    work = work.then(function () { return caches.keys(); })
+      .then(function (ks) { steps.push('caches: ' + ks.length); return Promise.all(ks.map(function (k) { return caches.delete(k); })); });
+  }
+  work.then(function () { detail.textContent = steps.join(' · '); finish('מוכן — פותח את הגרסה החדשה…'); })
+      .catch(function (e) { detail.textContent = String(e && e.message || e); finish('ניקוי חלקי — פותח בכל זאת…'); });
+})();
+</script>
+</body>
+</html>

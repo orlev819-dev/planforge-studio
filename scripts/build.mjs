@@ -51,13 +51,15 @@ cpSync(worker, join(out, 'pdf.worker.min.mjs'));
 const files = [];
 const walk = (d, rel = '') => { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p, rel + f + '/'); else if (!f.endsWith('.map') && f !== 'sw.js') files.push(rel + f); } };
 walk(out);
+const precache = files.filter((f) => f !== 'update.html');
 const hash = createHash('sha1').update(files.join('|') + Date.now()).digest('hex').slice(0, 10);
 writeFileSync(join(out, 'sw.js'), `const CACHE='planforge-${buildId}-${hash}';
-const FILES=${JSON.stringify(['./', ...files.map((f) => './' + f)])};
+const FILES=${JSON.stringify(['./', ...precache.map((f) => './' + f)])};
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET')return;
+  if(new URL(e.request.url).pathname.endsWith('/update.html'))return;   // always from the network
   // the page itself is always fetched fresh when online, so a new build is picked up immediately
   if(e.request.mode==='navigate'){
     e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(k=>k.put('./index.html',c));return r;}).catch(()=>caches.match('./index.html',{ignoreSearch:true}).then(r=>r||caches.match('./'))));

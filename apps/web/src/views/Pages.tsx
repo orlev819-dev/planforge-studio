@@ -73,6 +73,14 @@ export function SettingsPage() {
       <button className="btn" onClick={demo}>Create demo project (labelled as demo)</button>
       <hr />
       <p className="muted" data-testid="build-id">Build: {BUILD_ID}</p>
+      <button className="btn" data-testid="force-update" onClick={async () => {
+        try {
+          if ('serviceWorker' in navigator) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+          if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
+        } catch { /* storage unavailable */ }
+        location.replace(`${location.pathname}?u=${Date.now()}`);
+      }}>{t('checkUpdate')}</button>
+      <p className="muted sm">{t('checkUpdateHint')}</p>
       <h3>Build capability status</h3>
       <ul className="caps">
         <li>✓ 2D editor, geometry kernel, 3D (WebGL), IndexedDB autosave, undo/redo, version snapshots</li>
