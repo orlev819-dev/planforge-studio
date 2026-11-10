@@ -1,14 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { Icon } from './Icon';
 import type { LengthUnit } from '../../../../packages/shared-types/src/index';
 import { parseLength, toUnit } from '../../../../packages/geometry/src/index';
 import { toast } from '../store';
 
 const unitLabel = (u: LengthUnit) => (u === 'ft-in' ? 'ft' : u);
 
+/** true on touch screens (iPad): drives the touch-first styling and stepper buttons */
+export function useCoarse() {
+  return useSyncExternalStore(
+    (cb) => { const m = window.matchMedia('(pointer: coarse)'); m.addEventListener('change', cb); return () => m.removeEventListener('change', cb); },
+    () => window.matchMedia('(pointer: coarse)').matches,
+    () => false,
+  );
+}
+const stepFor = (v: number | null) => (v != null && v < 0.3 ? 0.01 : 0.05);
+
 /** Length input in the project's unit (accepts explicit suffixes like 425cm or 12' 6"). Commits meters on Enter/blur. */
-export function LengthField({ label, value, unit, onCommit, testId, min = 0, allowEmpty, placeholder }: {
-  label: string; value: number | null; unit: LengthUnit; onCommit: (m: number | null) => void; testId?: string; min?: number; allowEmpty?: boolean; placeholder?: string;
+export function LengthField({ label, value, unit, onCommit, testId, min = 0, allowEmpty, placeholder, steppers = true }: {
+  label: string; value: number | null; unit: LengthUnit; onCommit: (m: number | null) => void; testId?: string; min?: number; allowEmpty?: boolean; placeholder?: string; steppers?: boolean;
 }) {
+  const coarse = useCoarse();
   const fmt = (v: number | null) => (v == null ? '' : String(+toUnit(v, unit).toFixed(unit === 'mm' ? 1 : unit === 'cm' ? 2 : 4)));
   const [text, setText] = useState(fmt(value));
   useEffect(() => setText(fmt(value)), [value, unit]); // eslint-disable-line
@@ -24,6 +36,12 @@ export function LengthField({ label, value, unit, onCommit, testId, min = 0, all
       <span className="field-input">
         <input data-testid={testId} data-laser-commit="1" value={text} placeholder={placeholder} inputMode="decimal" onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setText(fmt(value)); (e.target as HTMLInputElement).blur(); } }} />
         <em>{unitLabel(unit)}</em>
+        {coarse && steppers && (
+          <span className="stepper">
+            <button type="button" data-testid={testId ? `${testId}-minus` : undefined} aria-label="−" onClick={() => { const v = (value ?? 0) - stepFor(value); if (v >= min) onCommit(+v.toFixed(4)); }}><Icon name="minus" size={16} /></button>
+            <button type="button" data-testid={testId ? `${testId}-plus` : undefined} aria-label="+" onClick={() => onCommit(+((value ?? 0) + stepFor(value)).toFixed(4))}><Icon name="plus" size={16} /></button>
+          </span>
+        )}
       </span>
     </label>
   );

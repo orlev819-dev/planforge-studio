@@ -7,6 +7,8 @@ import {
 } from '../../../../packages/geometry/src/index';
 import { editFloor, editProject, getState, select, setTool, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
+import { materialColor } from '../../../../packages/renderer-3d/src/mesh';
+import { Icon } from './Icon';
 import { LengthField, NumberField, TextField, SelectField, Check, Stat, MATERIALS } from './fields';
 
 export function Inspector() {
@@ -38,7 +40,12 @@ export function Inspector() {
       <Panel title={`${t('room')}: ${r.name}`} testId="inspector-room">
         <TextField label={t('name')} value={r.name} testId="room-name" onCommit={(name) => editFloor('Rename room', (f) => updateRoom(f, id, { name }))} />
         <LengthField label={t('height')} value={r.height} unit={unit} testId="room-height" onCommit={(h) => h && editFloor('Room height', (f) => updateRoom(f, id, { height: h }))} />
-        <SelectField label={`${t('material')} (floor)`} value={r.floorMaterial} options={MATERIALS.map((x) => ({ value: x, label: x }))} onChange={(v) => editFloor('Floor material', (f) => updateRoom(f, id, { floorMaterial: v }))} />
+        <label className="field"><span>{t('material')} (floor)</span>
+          <span className="field-input">
+            <span className="swatch" style={{ background: materialColor(r.floorMaterial) }} />
+            <select value={r.floorMaterial} onChange={(e) => editFloor('Floor material', (f) => updateRoom(f, id, { floorMaterial: e.target.value }))}>{MATERIALS.map((x) => <option key={x} value={x}>{x}</option>)}</select>
+          </span>
+        </label>
         <div className="stats">
           <Stat label={t('grossArea')} value={A(m.grossArea)} testId="room-area" />
           <Stat label={t('netArea')} value={A(m.netArea)} testId="room-net-area" />
@@ -57,7 +64,7 @@ export function Inspector() {
             <LengthField label={`${w.kind === 'railing' ? t('railing') : t('wall')} ${i + 1}`} value={m.edgeLengths[i]} unit={unit} testId={`room-wall-${i}`}
               onCommit={(len) => len && editFloor('Wall length', (f) => setWallLength(f, w.id, len, w.a === r.vertexIds[i] ? 'a' : 'b'))} />
             <button className={`icon-btn ${w.kind === 'railing' ? 'on' : ''}`} data-testid={`room-wall-${i}-railing`} title={t('railing')}
-              onClick={() => editFloor('Wall type', (f) => updateWall(f, w.id, { kind: w.kind === 'railing' ? 'solid' : 'railing' }))}>⑁</button>
+              onClick={() => editFloor('Wall type', (f) => updateWall(f, w.id, { kind: w.kind === 'railing' ? 'solid' : 'railing' }))}><Icon name="railing" size={18} /></button>
           </div>
         ))}
         <SplitRoom roomId={id} floor={floor} />

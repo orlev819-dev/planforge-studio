@@ -4,15 +4,16 @@ import { useT, type TKey } from './i18n';
 import { Dashboard } from './views/Dashboard';
 import { Editor } from './views/Editor';
 import { LibraryPage, ReportsPage, SettingsPage } from './views/Pages';
+import { Icon, type IconName } from './components/Icon';
 
-const NAV: { key: TKey; route?: Route['page']; icon: string; ready: boolean }[] = [
-  { key: 'dashboard', route: 'dashboard', icon: '⌂', ready: true },
-  { key: 'floorPlans', route: 'editor', icon: '▦', ready: true },
-  { key: 'library', route: 'library', icon: '🛋', ready: true },
-  { key: 'reports', route: 'reports', icon: '▤', ready: true },
-  { key: 'estimates', icon: '₪', ready: false },
-  { key: 'team', icon: '👥', ready: false },
-  { key: 'settings', route: 'settings', icon: '⚙', ready: true },
+const NAV: { key: TKey; route?: Route['page']; icon: IconName; ready: boolean }[] = [
+  { key: 'dashboard', route: 'dashboard', icon: 'home', ready: true },
+  { key: 'floorPlans', route: 'editor', icon: 'plan', ready: true },
+  { key: 'library', route: 'library', icon: 'library', ready: true },
+  { key: 'reports', route: 'reports', icon: 'reports', ready: true },
+  { key: 'estimates', icon: 'estimates', ready: false },
+  { key: 'team', icon: 'team', ready: false },
+  { key: 'settings', route: 'settings', icon: 'settings', ready: true },
 ];
 
 function routeFromHash(): Route {
@@ -55,7 +56,7 @@ export function App() {
             <button key={n.key} className={`nav-item ${active ? 'on' : ''}`} disabled={disabled} data-testid={`nav-${n.key}`}
               title={!n.ready ? t('notImplemented') : t(n.key)}
               onClick={() => { if (n.route === 'editor' && project) go({ page: 'editor', projectId: project.id }); else if (n.route && n.route !== 'editor') go({ page: n.route } as Route); }}>
-              <span className="ni">{n.icon}</span><span className="nl">{t(n.key)}</span>{!n.ready && <small className="soon">—</small>}
+              <span className="ni"><Icon name={n.icon} /></span><span className="nl">{t(n.key)}</span>{!n.ready && <small className="soon">—</small>}
             </button>
           );
         })}

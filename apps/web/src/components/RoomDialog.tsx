@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { addRectRoom, roomPoints, bbox, parseLength } from '../../../../packages/geometry/src/index';
-import { editFloor, select, useStore, currentFloor, toast } from '../store';
+import { editFloor, select, setTool, useStore, currentFloor, toast } from '../store';
 import { useT } from '../i18n';
 import { Modal, SelectField } from './fields';
 
@@ -34,7 +34,7 @@ export function RoomDialog({ onClose }: { onClose: () => void }) {
     }
     let id: string | null = null;
     const ok = editFloor('Create room', (f) => { const r = addRectRoom(f, { x: X!, y: Y!, width: W, length: Lg, height: H, name: name.trim() || `Room ${n}` }); id = r.roomId; return r.floor; });
-    if (ok && id) { select([id]); onClose(); window.dispatchEvent(new Event('planforge:fit')); }
+    if (ok && id) { select([id]); setTool('select'); onClose(); window.dispatchEvent(new Event('planforge:fit')); }
   }
   const field = (label: string, v: string, set: (s: string) => void, testId: string) => (
     <label className="field"><span>{label}</span><span className="field-input"><input data-testid={testId} value={v} inputMode="decimal" onChange={(e) => set(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} /><em>{unit === 'ft-in' ? 'ft' : unit}</em></span></label>

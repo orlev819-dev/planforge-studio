@@ -20,6 +20,12 @@ async function touchGesture(page: Page, pts: { x: number; y: number; type: 'down
     if (p.wait) await page.waitForTimeout(p.wait);
   }
 }
+/** exact-dimensions dialog on touch: the Room tool opens it when it is already active */
+async function openRoomDialog(page: Page) {
+  await page.getByTestId('tool-room').tap();
+  await page.getByTestId('tool-room').tap();
+  await expect(page.getByTestId('room-dialog')).toBeVisible();
+}
 async function newProject(page: Page, name: string) {
   await page.goto('/');
   await page.getByTestId('new-project').tap();
@@ -39,7 +45,7 @@ test.describe('iPad portrait (820×1180)', () => {
     // drawer closed: canvas uses the full width next to the toolbar
     await expect(page.getByTestId('sidebar')).toBeHidden();
     await expect(page.getByTestId('drawer-toggle')).toBeVisible();
-    await page.getByTestId('room-dialog-open').tap();
+    await openRoomDialog(page);
     const fs = await page.getByTestId('room-width').evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(fs).toBeGreaterThanOrEqual(16);
     await page.getByTestId('room-create').tap();
@@ -76,7 +82,7 @@ test.describe('iPad portrait (820×1180)', () => {
 
   test('long-press opens the context menu; one-finger drag on empty space pans', async ({ page }) => {
     await newProject(page, 'Gestures');
-    await page.getByTestId('room-dialog-open').tap();
+    await openRoomDialog(page);
     await page.getByTestId('room-create').tap();
     await page.getByTestId('drawer-close').tap();
     const c = await toScreen(page, { x: 2, y: 1.75 });
@@ -95,9 +101,32 @@ test.describe('iPad portrait (820×1180)', () => {
     expect(Math.min(...Object.values(s.project.floors[0].vertices).map((v: any) => v.x))).toBe(0);
   });
 
+  test('tablet chrome: More sheet holds the secondary tools, steppers edit lengths', async ({ page }) => {
+    await newProject(page, 'Chrome');
+    await openRoomDialog(page);
+    await page.getByTestId('room-create').tap();
+    // secondary tools live behind More
+    await expect(page.getByTestId('tool-eraser')).toHaveCount(0);
+    await page.getByTestId('tool-more').tap();
+    await expect(page.getByTestId('more-sheet')).toBeVisible();
+    await page.getByTestId('tool-eraser').tap();
+    await expect(page.getByTestId('more-sheet')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__planforge.getState().tool)).toBe('eraser');
+    // −/+ steppers on length fields
+    await page.getByTestId('tool-select').tap();
+    const r = await toScreen(page, { x: 2, y: 1.75 });
+    await page.touchscreen.tap(r.x, r.y);
+    await expect(page.getByTestId('room-height')).toHaveValue('2.6');
+    await page.getByTestId('room-height-plus').tap();
+    await expect(page.getByTestId('room-height')).toHaveValue('2.65');
+    await page.getByTestId('room-height-minus').tap();
+    await page.getByTestId('room-height-minus').tap();
+    await expect(page.getByTestId('room-height')).toHaveValue('2.55');
+  });
+
   test('3D walk mode shows the on-screen walk pad', async ({ page }) => {
     await newProject(page, 'Walk');
-    await page.getByTestId('room-dialog-open').tap();
+    await openRoomDialog(page);
     await page.getByTestId('room-create').tap();
     await page.getByTestId('view-3d').tap();
     await page.getByRole('button', { name: 'Walk (WASD)' }).tap();
@@ -108,6 +137,21 @@ test.describe('iPad portrait (820×1180)', () => {
 
 test.describe('iPad landscape (1180×820)', () => {
   test.use({ viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+
+  test('split view has a draggable 2D | 3D splitter', async ({ page }) => {
+    await newProject(page, 'Split');
+    await page.getByTestId('view-split').tap();
+    const handle = page.getByTestId('splitter');
+    await expect(handle).toBeVisible();
+    const before = (await page.getByTestId('plan-canvas').boundingBox())!.width;
+    const b = (await handle.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 - 200, b.y + b.height / 2, { steps: 6 });
+    await page.mouse.up();
+    const after = (await page.getByTestId('plan-canvas').boundingBox())!.width;
+    expect(after).toBeLessThan(before - 150);
+  });
 
   test('properties panel is docked; home-screen icons are served', async ({ page }) => {
     await newProject(page, 'iPad landscape');

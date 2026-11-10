@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Vec2 } from '../../../../packages/shared-types/src/index';
 import { addFloor, duplicateFloor, removeFloor, updateFloorProps, dist, formatLength, parseLength } from '../../../../packages/geometry/src/index';
 import { projectJSON } from '../../../../packages/cad-io/src/tables';
@@ -14,12 +14,24 @@ import { Modal, download, safeName } from '../components/fields';
 import { editProject, go, redo, setState, setTool, undo, useStore, currentFloor, toast, saveNow, getState, persistProject, type Tool, type LayerKey } from '../store';
 import { dbApi, type Snapshot } from '../db';
 import { useT, type TKey } from '../i18n';
+import { Icon, type IconName } from '../components/Icon';
+import { useCoarse } from '../components/fields';
 
-const TOOLS: { id: Tool; key: TKey; icon: string; kbd?: string }[] = [
-  { id: 'select', key: 'select', icon: '⬉', kbd: 'V' }, { id: 'pan', key: 'pan', icon: '✋', kbd: 'H' }, { id: 'room', key: 'room', icon: '▭', kbd: 'R' },
-  { id: 'wall', key: 'wall', icon: '▬', kbd: 'W' }, { id: 'railing', key: 'railing', icon: '⑁', kbd: 'B' }, { id: 'corner', key: 'corner', icon: '⌜' }, { id: 'door', key: 'door', icon: '◜', kbd: 'D' },
-  { id: 'window', key: 'window', icon: '▤', kbd: 'N' }, { id: 'opening', key: 'opening', icon: '⊓' }, { id: 'dimension', key: 'dimension', icon: '↔', kbd: 'M' },
-  { id: 'ceiling', key: 'ceiling', icon: '⬓', kbd: 'C' }, { id: 'furniture', key: 'furniture', icon: '🛋' }, { id: 'annotation', key: 'annotation', icon: '✎' }, { id: 'eraser', key: 'eraser', icon: '⌫', kbd: 'E' },
+const TOOLS: { id: Tool; key: TKey; icon: IconName; kbd?: string; primary?: boolean }[] = [
+  { id: 'select', key: 'select', icon: 'select', kbd: 'V', primary: true },
+  { id: 'pan', key: 'pan', icon: 'pan', kbd: 'H', primary: true },
+  { id: 'room', key: 'room', icon: 'room', kbd: 'R', primary: true },
+  { id: 'wall', key: 'wall', icon: 'wall', kbd: 'W', primary: true },
+  { id: 'railing', key: 'railing', icon: 'railing', kbd: 'B', primary: true },
+  { id: 'door', key: 'door', icon: 'door', kbd: 'D', primary: true },
+  { id: 'window', key: 'window', icon: 'window', kbd: 'N', primary: true },
+  { id: 'opening', key: 'opening', icon: 'opening', primary: true },
+  { id: 'dimension', key: 'dimension', icon: 'dimension', kbd: 'M', primary: true },
+  { id: 'corner', key: 'corner', icon: 'corner' },
+  { id: 'ceiling', key: 'ceiling', icon: 'ceiling', kbd: 'C' },
+  { id: 'furniture', key: 'furniture', icon: 'furniture' },
+  { id: 'annotation', key: 'annotation', icon: 'note' },
+  { id: 'eraser', key: 'eraser', icon: 'eraser', kbd: 'E' },
 ];
 
 export function Editor() {
@@ -35,6 +47,22 @@ export function Editor() {
   const [side, setSide] = useState<'props' | 'library'>('props');
   // iPad portrait / narrow touch screens: the side panel is a slide-over drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const coarse = useCoarse();
+  // draggable 2D | 3D splitter (split view)
+  const [ratio, setRatio] = useState(() => { const v = Number(localStorage.getItem('planforge.split')); return v >= 0.2 && v <= 0.8 ? v : 0.5; });
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const dragSplit = (e: React.PointerEvent) => {
+    const el = stageRef.current; if (!el) return;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    const move = (ev: PointerEvent) => {
+      const b = el.getBoundingClientRect();
+      const r = Math.min(0.8, Math.max(0.2, (ev.clientX - b.left) / b.width));
+      setRatio(r);
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); setRatio((r) => { localStorage.setItem('planforge.split', String(r)); return r; }); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  };
   const [calib, setCalib] = useState<{ a: Vec2; b: Vec2 } | null>(null);
 
   const selection = useStore((s) => s.selection);
@@ -49,16 +77,16 @@ export function Editor() {
   return (
     <div className="editor" data-testid="editor">
       <div className="topbar">
-        <button className="icon-btn" onClick={() => go({ page: 'dashboard' })} title={t('dashboard')} aria-label={t('dashboard')}>←</button>
+        <button className="icon-btn" onClick={() => go({ page: 'dashboard' })} title={t('dashboard')} aria-label={t('dashboard')}><Icon name="back" size={20} /></button>
         <input className="project-name" data-testid="project-title" value={project.name} onChange={(e) => setState({ project: { ...project, name: e.target.value } })} onBlur={(e) => editProject('Rename project', (p) => ({ ...p, name: e.target.value.trim() || p.name }))} />
         <div className="sep" />
-        <button className="btn sm" data-testid="undo" disabled={!canUndo} onClick={undo} title="Ctrl+Z">↶ <span className="lbl">{t('undo')}</span></button>
-        <button className="btn sm" data-testid="redo" disabled={!canRedo} onClick={redo} title="Ctrl+Shift+Z">↷ <span className="lbl">{t('redo')}</span></button>
+        <button className="btn sm" data-testid="undo" disabled={!canUndo} onClick={undo} title="Ctrl+Z"><Icon name="undo" size={18} /> <span className="lbl">{t('undo')}</span></button>
+        <button className="btn sm" data-testid="redo" disabled={!canRedo} onClick={redo} title="Ctrl+Shift+Z"><Icon name="redo" size={18} /> <span className="lbl">{t('redo')}</span></button>
         <span className={`save-state ${save}`} data-testid="save-state">{saveLabel}</span>
         <div className="sep" />
         <FloorSelector />
         <div className="seg" role="tablist">
-          {(['2d', '3d', 'split'] as const).map((v) => <button key={v} role="tab" data-testid={`view-${v}`} className={view === v ? 'on' : ''} onClick={() => setState({ view: v })}>{t(v === '2d' ? 'view2d' : v === '3d' ? 'view3d' : 'split')}</button>)}
+          {(['2d', '3d', 'split'] as const).map((v) => <button key={v} role="tab" data-testid={`view-${v}`} className={view === v ? 'on' : ''} onClick={() => setState({ view: v })}>{v === 'split' && <Icon name="split" size={16} />}{t(v === '2d' ? 'view2d' : v === '3d' ? 'view3d' : 'split')}</button>)}
         </div>
         <div className="seg zoom-seg">
           <button onClick={() => window.dispatchEvent(new CustomEvent('planforge:zoom', { detail: 1 / 1.25 }))} aria-label="zoom out">−</button>
@@ -67,29 +95,52 @@ export function Editor() {
         </div>
         <div className="grow" />
         <LaserButton />
-        <button className="btn sm" onClick={() => setDialog('versions')}>{t('versions')}</button>
-        <button className="btn sm" onClick={() => setDialog('share')}>{t('share')}</button>
-        <button className="btn sm primary" data-testid="export-open" onClick={() => setDialog('export')}>{t('export')}</button>
-        <button className={`btn sm drawer-toggle ${drawerOpen ? 'on' : ''}`} data-testid="drawer-toggle" onClick={() => setDrawerOpen(!drawerOpen)} aria-expanded={drawerOpen}>☰ {t('inspector')}</button>
+        <button className="btn sm hide-touch" onClick={() => setDialog('versions')}>{t('versions')}</button>
+        <button className="btn sm" onClick={() => setDialog('share')}><Icon name="share" size={18} /> <span className="lbl">{t('share')}</span></button>
+        <button className="btn sm primary" data-testid="export-open" onClick={() => setDialog('export')}><Icon name="export" size={18} /> {t('export')}</button>
+        <button className={`btn sm drawer-toggle ${drawerOpen ? 'on' : ''}`} data-testid="drawer-toggle" onClick={() => setDrawerOpen(!drawerOpen)} aria-expanded={drawerOpen}><Icon name="layers" size={18} /> {t('inspector')}</button>
       </div>
       <div className={`editor-main ${drawerOpen ? 'drawer-open' : ''}`}>
         <div className="toolbar" role="toolbar">
-          {TOOLS.map((tl) => (
-            <button key={tl.id} data-testid={`tool-${tl.id}`} className={tool === tl.id ? 'on' : ''} title={`${t(tl.key)}${tl.kbd ? ` (${tl.kbd})` : ''}`} onClick={() => setTool(tl.id)}>
-              <span className="ti">{tl.icon}</span><span className="tl">{t(tl.key)}</span>
+          {TOOLS.filter((tl) => !coarse || tl.primary).map((tl) => (
+            <button key={tl.id} data-testid={`tool-${tl.id}`} className={tool === tl.id ? 'on' : ''}
+              title={tl.id === 'room' ? `${t('room')} — ${t('roomDialog')}` : `${t(tl.key)}${tl.kbd ? ` (${tl.kbd})` : ''}`}
+              onClick={() => { if (tl.id === 'room' && tool === 'room') setDialog('room'); else setTool(tl.id); }}>
+              <span className="ti"><Icon name={tl.icon} /></span><span className="tl">{t(tl.key)}</span>
             </button>
           ))}
-          <hr />
-          <button data-testid="room-dialog-open" title={t('roomDialog')} onClick={() => setDialog('room')}><span className="ti">⊞</span><span className="tl">{t('room')} …</span></button>
-          <button data-testid="import-open" title={t('importPlan')} onClick={() => setDialog('import')}><span className="ti">⇪</span><span className="tl">{t('import')}</span></button>
-          <button title={t('layers')} onClick={() => setDialog('layers')}><span className="ti">☰</span><span className="tl">{t('layers')}</span></button>
+          {!coarse && <>
+            <hr />
+            <button data-testid="room-dialog-open" title={t('roomDialog')} onClick={() => setDialog('room')}><span className="ti"><Icon name="roomExact" /></span><span className="tl">{t('room')} …</span></button>
+            <button data-testid="import-open" title={t('importPlan')} onClick={() => setDialog('import')}><span className="ti"><Icon name="import" /></span><span className="tl">{t('import')}</span></button>
+            <button title={t('layers')} onClick={() => setDialog('layers')}><span className="ti"><Icon name="layers" /></span><span className="tl">{t('layers')}</span></button>
+          </>}
+          {coarse && (
+            <button data-testid="tool-more" className={moreOpen ? 'on' : ''} title={t('more')} onClick={() => setMoreOpen(!moreOpen)}>
+              <span className="ti"><Icon name="more" /></span><span className="tl">{t('more')}</span>
+            </button>
+          )}
+          {coarse && moreOpen && (
+            <div className="more-sheet" data-testid="more-sheet" onPointerDown={(e) => e.stopPropagation()}>
+              {TOOLS.filter((tl) => !tl.primary).map((tl) => (
+                <button key={tl.id} data-testid={`tool-${tl.id}`} className={tool === tl.id ? 'on' : ''} onClick={() => { setTool(tl.id); setMoreOpen(false); }}>
+                  <span className="ti"><Icon name={tl.icon} /></span><span className="tl">{t(tl.key)}</span>
+                </button>
+              ))}
+              <button data-testid="room-dialog-open" onClick={() => { setDialog('room'); setMoreOpen(false); }}><span className="ti"><Icon name="roomExact" /></span><span className="tl">{t('room')} …</span></button>
+              <button data-testid="import-open" onClick={() => { setDialog('import'); setMoreOpen(false); }}><span className="ti"><Icon name="import" /></span><span className="tl">{t('import')}</span></button>
+              <button onClick={() => { setDialog('layers'); setMoreOpen(false); }}><span className="ti"><Icon name="layers" /></span><span className="tl">{t('layers')}</span></button>
+              <button onClick={() => { setDialog('versions'); setMoreOpen(false); }}><span className="ti"><Icon name="undo" /></span><span className="tl">{t('versions')}</span></button>
+            </div>
+          )}
         </div>
-        <div className={`stage view-${view}`}>
+        <div className={`stage view-${view}`} ref={stageRef} style={view === 'split' ? { gridTemplateColumns: `${ratio}fr 12px ${1 - ratio}fr` } : undefined}>
           {view !== '3d' && <div className="stage-2d"><Canvas2D floor={floor} onCalibrate={(a, b) => setCalib({ a, b })} /></div>}
+          {view === 'split' && <div className="splitter" data-testid="splitter" role="separator" aria-orientation="vertical" onPointerDown={dragSplit}><span /></div>}
           {view !== '2d' && <div className="stage-3d"><Viewer3DView /></div>}
         </div>
         <aside className="sidebar" data-testid="sidebar">
-          <button className="icon-btn drawer-close" data-testid="drawer-close" onClick={() => setDrawerOpen(false)} aria-label={t('close')}>✕</button>
+          <button className="icon-btn drawer-close" data-testid="drawer-close" onClick={() => setDrawerOpen(false)} aria-label={t('close')}><Icon name="close" size={18} /></button>
           <div className="seg full">
             <button className={side === 'props' ? 'on' : ''} onClick={() => setSide('props')}>{t('inspector')}</button>
             <button className={side === 'library' ? 'on' : ''} data-testid="tab-library" onClick={() => setSide('library')}>{t('furniture')}</button>
@@ -144,10 +195,18 @@ function StatusBar() {
       <label className="check"><input type="checkbox" checked={project.settings.snap} onChange={(e) => set({ snap: e.target.checked })} /> {t('snap')}</label>
       <label className="check"><input type="checkbox" checked={project.settings.showGrid} onChange={(e) => set({ showGrid: e.target.checked })} /> {t('grid')}</label>
       <span className="grow" />
+      <PencilHint />
       <span>{lang === 'he' ? 'עברית' : 'English'}</span>
       <span className={`save-state ${save}`}>{save === 'saved' ? '●' : save === 'dirty' || save === 'saving' ? '◐' : save === 'error' ? '✕' : '○'}</span>
     </div>
   );
+}
+
+function PencilHint() {
+  const { t } = useT();
+  const coarse = useCoarse();
+  if (!coarse) return null;
+  return <span className="pencil-hint" data-testid="pencil-hint"><Icon name="note" size={15} /> {t('pencilHint')} <Icon name="info" size={15} /></span>;
 }
 
 function LayersDialog({ onClose }: { onClose: () => void }) {
