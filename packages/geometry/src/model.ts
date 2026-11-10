@@ -19,7 +19,7 @@ export function createProject(name: string, opts: Partial<Pick<Project, 'address
     schemaVersion: 1, id: uid(), name, address: opts.address ?? '', description: opts.description ?? '',
     status: 'active', isDemo: opts.isDemo ?? false, createdAt: now, updatedAt: now, rev: 0,
     settings: { unit: 'm', precision: 2, showGrid: true, snap: true },
-    floors: [],
+    floors: [], assets: {},
   };
 }
 

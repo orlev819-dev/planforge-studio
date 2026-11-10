@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Geometry + export + laser + ceiling unit tests | `npm test` | ✅ 34 / 34 passed |
+| Unit tests (geometry, export, laser, ceilings, model import) | `npm test` | ✅ 39 / 39 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium) | `npm run test:e2e` | ✅ 8 / 8 passed |
+| End-to-end (real UI in Chromium) | `npm run test:e2e` | ✅ 9 / 9 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -31,7 +31,11 @@ Packet parser (valid / malformed / NaN / out-of-range — synthetic fixtures) ·
 Unit (4): convex clipping · volume reduction, lowered area, soffit side faces (flush-with-wall edge excluded) · height/size validation · 2D label, DXF layer, 3D block heights, re-id, old-project migration.
 E2E (1): draw zone with the tool → default 30 cm below ceiling → set 2.35 m → room shows 2.00 m² lowered → invalid 3 m rejected → 3D gains one part.
 
-## End-to-end tests (8)
+## Model import tests
+Unit (5): binary = ASCII STL · OBJ quads / negative indices / v/vt/vn · mm→m, Z-up→Y-up, centring, hull · placed model scaled + rotated in 3D, 2D footprint, GLB export, JSON round-trip · unit auto-detect.
+E2E (1): upload STL (mm) → detected 0.600 × 0.400 × 0.750 m → place → 3D part → persists after reload.
+
+## End-to-end tests (9)
 1. **Primary acceptance (§23):** new project “My Apartment” → Floor 1 (+ add floor) → draw a room with the mouse →
    type 4.00 / 3.50 → **14.00 m²** → connected 3 × 3.5 room (7 walls, 1 shared) → **80 cm door** on the shared wall →
    **120 cm window** → sofa + dining table → wall 4.00 → 4.50: living **15.75 m²**, kitchen **8.75 m²** → undo/redo →

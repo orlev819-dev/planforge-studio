@@ -110,3 +110,4 @@ table.report { border-collapse: collapse; width: 100%; margin-top: 12px; backgro
 .laser-pop h4 { margin: 0 0 4px; } .laser-pop p { margin: 6px 0; }
 .laser-log { font-size: 10.5px; max-height: 160px; overflow: auto; background: var(--panel-2); padding: 6px; border-radius: 4px; white-space: pre-wrap; direction: ltr; text-align: left; }
 .grid2 > * { min-width: 0; } .field-input input { min-width: 0; width: 100%; }
+.my-models { border: 1px dashed var(--border); border-radius: 8px; padding: 6px; margin-bottom: 8px; } .lib-item { position: relative; } .lib-item .icon-btn { position: absolute; top: 2px; inset-inline-end: 2px; font-size: 11px; }

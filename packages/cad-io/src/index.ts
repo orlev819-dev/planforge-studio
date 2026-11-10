@@ -4,6 +4,7 @@ export * from './dxf';
 export * from './pdf';
 export * from './model3d';
 export * from './tables';
+export * from './model-import';
 
 /** Formats the export engine knows about, with honest support status. */
 export const EXPORT_FORMATS = [

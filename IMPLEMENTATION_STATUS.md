@@ -35,7 +35,8 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | 3D | orbit/pan/zoom, top, perspective, isometric, walk/first-person, roof/ceilings toggle, solid/transparent/hidden walls, floor selection, picking, incremental updates, materials as colours | ✅ |
 | 3D | shadows, PBR textures | ❌ |
 | Library | 44 original items in 8 categories, search, click-to-place, drag & drop, rotate, resize, mirror, layer, colour, custom metadata | ✅ |
-| Library | grouping, importing user SVG/GLB/GLTF models | ❌ |
+| Library | import user OBJ / STL (ASCII + binary): unit auto-detect + override, Y/Z-up, colour; stored in the project; real footprint (convex hull) in 2D/PDF/DXF, real mesh in 3D and GLB/OBJ export; resize/rotate/mirror like furniture; ≤200k triangles | ✅ |
+| Library | grouping, GLB/GLTF/SVG model import | ❌ |
 | Import | PDF (page choice), PNG, JPG, SVG as reference; 2-point calibration; rotate/opacity/lock/hide; trace | ✅ |
 | Import | DXF import, image-analysis wall suggestions | ❌ |
 | Export | PDF (A4/A3/custom, orientation, 1:N or fit, header/footer/logo/date/legend, room schedule), PNG/JPEG (DPI), SVG, DXF, GLB, OBJ, JSON, CSV | ✅ |

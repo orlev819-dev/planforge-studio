@@ -3,7 +3,8 @@
  * World frame: Y-up, plan (x, y) at height h -> (x, floorElevation + h, y). Units: meters.
  * Each part carries a `key` derived from its inputs so renderers can skip re-uploading unchanged parts.
  */
-import type { Floor, Furniture, Project, Vec2 } from '../../shared-types/src/index';
+import type { Floor, Furniture, ModelAsset, Project, Vec2 } from '../../shared-types/src/index';
+import { decodeFloats } from '../../cad-io/src/model-import';
 import { ceilingAbove, furnitureCorners, add, dist, norm, openingGeometry, perp, roomPoints, scale, sub, triangulate, wallEnds, wallHeight, centroid } from '../../geometry/src/index';
 
 export type PartKind = 'wall' | 'floor' | 'ceiling' | 'soffit' | 'furniture' | 'glass' | 'door';
@@ -16,9 +17,11 @@ export interface MeshPart {
   positions: number[];
   normals: number[];
   indices: number[];
+  /** light both faces (imported meshes may have inconsistent winding) */
+  twoSided?: boolean;
 }
 
-export interface MeshOptions { ceilings?: boolean; furniture?: boolean; floors?: string[] }
+export interface MeshOptions { ceilings?: boolean; furniture?: boolean; floors?: string[]; assets?: Record<string, ModelAsset> }
 
 const MATERIAL_COLORS: Record<string, string> = {
   wood: '#c8a27a', tile: '#d9d9d6', concrete: '#a8a8a8', carpet: '#9a8c98', marble: '#ece8e1', 'paint-white': '#f1efe9', plaster: '#ebe7df', brick: '#b5654a', stone: '#9c9a92',
@@ -142,9 +145,33 @@ function furnitureBoxes(fu: Furniture): { r: [number, number, number, number]; z
   }
 }
 
-function furnitureParts(f: Floor): MeshPart[] {
+const decoded = new Map<string, Float32Array>();
+function modelPart(f: Floor, fu: Furniture, a: ModelAsset): MeshPart {
+  let tris = decoded.get(a.id);
+  if (!tris) { tris = decodeFloats(a.data); decoded.set(a.id, tris); }
+  const r = (fu.rotation * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r), m = fu.mirrored ? -1 : 1;
+  const sx = fu.width / a.size.x, sy = fu.height / a.size.y, sz = fu.depth / a.size.z, e = f.elevation + fu.elevation;
+  const positions = new Array<number>(tris.length), normals = new Array<number>(tris.length), indices = new Array<number>(tris.length / 3);
+  for (let i = 0; i < tris.length; i += 3) {
+    const x = tris[i] * sx * m, y = tris[i + 1] * sy, z = tris[i + 2] * sz;
+    positions[i] = fu.x + c * x - s * z; positions[i + 1] = e + y; positions[i + 2] = fu.y + s * x + c * z;
+    indices[i / 3] = i / 3;
+  }
+  for (let i = 0; i < positions.length; i += 9) {
+    const ux = positions[i + 3] - positions[i], uy = positions[i + 4] - positions[i + 1], uz = positions[i + 5] - positions[i + 2];
+    const vx = positions[i + 6] - positions[i], vy = positions[i + 7] - positions[i + 1], vz = positions[i + 8] - positions[i + 2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+    for (let k = 0; k < 3; k++) { normals[i + k * 3] = nx; normals[i + k * 3 + 1] = ny; normals[i + k * 3 + 2] = nz; }
+  }
+  return { key: JSON.stringify(['m', fu, f.elevation, a.id]), id: fu.id, kind: 'furniture', floorId: f.id, color: hexToRgba(fu.color), positions, normals, indices, twoSided: true };
+}
+
+function furnitureParts(f: Floor, assets: Record<string, ModelAsset> = {}): MeshPart[] {
   const out: MeshPart[] = [];
   for (const fu of Object.values(f.furniture)) {
+    const asset = fu.meta.modelId ? assets[fu.meta.modelId] : undefined;
+    if (asset) { out.push(modelPart(f, fu, asset)); continue; }
     const key = JSON.stringify(['f', fu, f.elevation]);
     const rad = (fu.rotation * Math.PI) / 180, c = Math.cos(rad), s = Math.sin(rad), m = fu.mirrored ? -1 : 1;
     const T = (x: number, y: number): Vec2 => ({ x: fu.x + c * x * m - s * y, y: fu.y + s * x * m + c * y });
@@ -191,12 +218,12 @@ export function buildFloorMesh(f: Floor, opts: MeshOptions = {}): MeshPart[] {
     B.prism(furnitureCorners(c), f.elevation + c.height, f.elevation + top);
     parts.push({ key: JSON.stringify(['s', c, top, f.elevation]), id: c.id, kind: 'soffit', floorId: f.id, color: [0.93, 0.92, 0.9, 0.85], positions: B.positions, normals: B.normals, indices: B.indices });
   }
-  if (opts.furniture !== false) parts.push(...furnitureParts(f));
+  if (opts.furniture !== false) parts.push(...furnitureParts(f, opts.assets));
   return parts;
 }
 
 export function buildProjectMesh(p: Project, opts: MeshOptions = {}): MeshPart[] {
-  return p.floors.filter((f) => !opts.floors || opts.floors.includes(f.id)).flatMap((f) => buildFloorMesh(f, opts));
+  return p.floors.filter((f) => !opts.floors || opts.floors.includes(f.id)).flatMap((f) => buildFloorMesh(f, { assets: p.assets, ...opts }));
 }
 
 export function meshBounds(parts: MeshPart[]) {

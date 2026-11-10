@@ -75,7 +75,8 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   const fitted = useRef<string | null>(null);
 
   const shown = preview ?? floor;
-  const prims = useMemo(() => buildDrawing(shown, { unit: settings.unit, precision: settings.precision }), [shown, settings.unit, settings.precision]);
+  const assets = useStore((s) => s.project!.assets);
+  const prims = useMemo(() => buildDrawing(shown, { unit: settings.unit, precision: settings.precision, assets }), [shown, settings.unit, settings.precision, assets]);
   const hidden = useMemo(() => {
     const h = new Set<Layer>();
     (Object.keys(layers) as LayerKey[]).forEach((k) => { if (!layers[k]) LAYER_MAP[k].forEach((l) => h.add(l)); });
@@ -419,9 +420,8 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
         return;
       }
       case 'furniture': {
-        const item = pendingCatalogId ? catalogById(pendingCatalogId) : null;
-        if (!item) { toast(t('hintFurniture'), 'error'); return; }
-        placeCatalog(item.id, sn.p);
+        if (!pendingCatalogId || (!catalogById(pendingCatalogId) && !pendingCatalogId.startsWith('asset:'))) { toast(t('hintFurniture'), 'error'); return; }
+        placeCatalog(pendingCatalogId, sn.p);
         return;
       }
       case 'annotation': {
@@ -440,6 +440,17 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   }
 
   function placeCatalog(catalogId: string, p: Vec2) {
+    if (catalogId.startsWith('asset:')) {
+      const a = getState().project!.assets?.[catalogId.slice(6)];
+      if (!a) return;
+      let nid: ID | null = null;
+      const ok = editFloor(`Add ${a.name}`, (f) => {
+        const r = addFurniture(f, { catalogId: 'custom', name: a.name, category: 'custom', x: p.x, y: p.y, rotation: 0, width: a.size.x, depth: a.size.z, height: a.size.y, elevation: 0, mirrored: false, layer: 'furniture', color: a.color, meta: { shape: 'model', modelId: a.id } });
+        nid = r.id; return r.floor;
+      });
+      if (ok && nid) { select([nid]); setTool('select'); }
+      return;
+    }
     const item = catalogById(catalogId);
     if (!item) return;
     let id: ID | null = null;

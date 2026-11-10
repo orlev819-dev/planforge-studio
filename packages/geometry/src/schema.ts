@@ -43,11 +43,16 @@ export const ProjectSchema = z.object({
   status: z.enum(['active', 'archived', 'deleted']), isDemo: z.boolean(), createdAt: z.number(), updatedAt: z.number(), rev: z.number().int(),
   settings: z.object({ unit: z.enum(['mm', 'cm', 'm', 'ft-in']), precision: z.number().int().min(0).max(4), showGrid: z.boolean(), snap: z.boolean() }),
   floors: z.array(FloorSchema).min(1),
+  assets: z.record(z.string(), z.object({
+    id, name: z.string(), format: z.enum(['obj', 'stl']), triangles: z.number().int().positive(),
+    size: z.object({ x: z.number().positive(), y: z.number().positive(), z: z.number().positive() }),
+    hull: z.array(vec), color: z.string(), data: z.string(),
+  })).default({}),
 });
 
 /** Upgrade projects saved by older versions (adds fields introduced later). */
 export function migrateProject(p: Project): Project {
-  return { ...p, floors: p.floors.map((f) => (f.ceilingDrops ? f : { ...f, ceilingDrops: {} })) };
+  return { ...p, assets: p.assets ?? {}, floors: p.floors.map((f) => (f.ceilingDrops ? f : { ...f, ceilingDrops: {} })) };
 }
 
 /** Parse + structurally validate + geometrically validate a project (e.g. JSON import). */

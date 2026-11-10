@@ -73,7 +73,7 @@ export function Inspector() {
         <LengthField label={t('length')} value={wm.length} unit={unit} testId="wall-length" onCommit={(len) => len && editFloor('Wall length', (f) => setWallLength(f, id, len))} />
         <NumberField label={t('angle')} value={+wm.angle.toFixed(2)} suffix="°" step={0.5} onCommit={(a) => editFloor('Wall angle', (f) => setWallAngle(f, id, a))} />
         <LengthField label={t('thickness')} value={w.thickness} unit={unit} testId="wall-thickness" onCommit={(v) => v && editFloor('Wall thickness', (f) => updateWall(f, id, { thickness: v }))} />
-        <LengthField label={t('height')} value={w.height} unit={unit} allowEmpty placeholder={L(wm.height)} onCommit={(v) => editFloor('Wall height', (f) => updateWall(f, id, { height: v }))} />
+        <LengthField label={t('objHeight')} value={w.height} unit={unit} allowEmpty placeholder={L(wm.height)} onCommit={(v) => editFloor('Wall height', (f) => updateWall(f, id, { height: v }))} />
         <Check label={t('exterior')} checked={w.exterior} onChange={(b) => editFloor('Wall type', (f) => updateWall(f, id, { exterior: b }))} />
         <SelectField label={t('material')} value={w.material} options={MATERIALS.map((x) => ({ value: x, label: x }))} onChange={(v) => editFloor('Wall material', (f) => updateWall(f, id, { material: v }))} />
         <div className="stats"><Stat label={t('wallArea')} value={A(wm.sideArea)} /><Stat label={`${t('doors')} / ${t('windows')}`} value={String(ops.length)} /></div>
@@ -96,7 +96,7 @@ export function Inspector() {
         <SelectField label={t('type')} value={o.subtype} options={subtypes.map((s) => ({ value: s, label: s }))} testId="opening-subtype"
           onChange={(v) => set(v === 'floor-to-ceiling' ? { subtype: v as Opening['subtype'], sill: 0, height: Math.max(o.height, 2.1) } : { subtype: v as Opening['subtype'] })} />
         <LengthField label={t('width')} value={o.width} unit={unit} testId="opening-width" onCommit={(v) => v && set({ width: v })} />
-        <LengthField label={t('height')} value={o.height} unit={unit} testId="opening-height" onCommit={(v) => v && set({ height: v })} />
+        <LengthField label={t('objHeight')} value={o.height} unit={unit} testId="opening-height" onCommit={(v) => v && set({ height: v })} />
         {o.kind !== 'door' && <LengthField label={t('sill')} value={o.sill} unit={unit} testId="opening-sill" onCommit={(v) => v != null && set({ sill: v })} />}
         <LengthField label={t('offset')} value={o.t - o.width / 2} unit={unit} testId="opening-offset" onCommit={(v) => v != null && set({ t: v + o.width / 2 })} />
         <div className="hint-text">{t('wall')}: {L(wl)}</div>
@@ -123,7 +123,7 @@ export function Inspector() {
           <LengthField label={t('y')} value={fu.y} unit={unit} min={-1e6} onCommit={(v) => v != null && set({ y: v })} />
           <LengthField label={t('width')} value={fu.width} unit={unit} testId="furniture-width" onCommit={(v) => v && set({ width: v })} />
           <LengthField label={t('depth')} value={fu.depth} unit={unit} onCommit={(v) => v && set({ depth: v })} />
-          <LengthField label={t('height')} value={fu.height} unit={unit} onCommit={(v) => v && set({ height: v })} />
+          <LengthField label={t('objHeight')} value={fu.height} unit={unit} onCommit={(v) => v && set({ height: v })} />
           <LengthField label={t('elevation')} value={fu.elevation} unit={unit} min={-100} onCommit={(v) => v != null && set({ elevation: v })} />
         </div>
         <NumberField label={t('rotation')} value={fu.rotation} suffix="°" step={15} onCommit={(r) => set({ rotation: ((r % 360) + 360) % 360 })} />

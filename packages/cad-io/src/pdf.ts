@@ -95,7 +95,7 @@ export async function planToPdf(project: Project, opts: PdfOptions): Promise<Uin
 
   for (const floor of floors) {
     const page = doc.addPage([PW, PH]);
-    const prims = buildDrawing(floor, { unit, precision: prec, furniture: opts.furniture, dimensions: opts.dimensions, annotations: opts.annotations });
+    const prims = buildDrawing(floor, { assets: project.assets, unit, precision: prec, furniture: opts.furniture, dimensions: opts.dimensions, annotations: opts.annotations });
     const b = drawingBounds(prims);
     const availW = PW - 2 * margin, availH = PH - 2 * margin - titleH - headerH;
     const wM = b.maxX - b.minX, hM = b.maxY - b.minY;

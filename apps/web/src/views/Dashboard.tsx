@@ -12,7 +12,7 @@ function thumbnail(p: Project): string | null {
   const f = p.floors.find((x) => Object.keys(x.rooms).length);
   if (!f) return null;
   if (!thumbCache.has(p)) {
-    const svg = toSVG(buildDrawing(f, { unit: p.settings.unit, precision: 1, dimensions: false, labels: false, annotations: false }), { background: '#fbfbfa' });
+    const svg = toSVG(buildDrawing(f, { assets: p.assets, unit: p.settings.unit, precision: 1, dimensions: false, labels: false, annotations: false }), { background: '#fbfbfa' });
     thumbCache.set(p, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
   }
   return thumbCache.get(p)!;
@@ -42,7 +42,7 @@ export function Dashboard() {
 
   async function importJson(file: File) {
     try {
-      const p = parseProject(readProjectJSON(await file.text()));
+      const p = parseProject(readProjectJSON(await file.text())) as Project;
       const exists = projects.some((x) => x.id === p.id);
       await persistProject(exists ? { ...p, id: uid(), name: `${p.name} (imported)` } : p);
       toast(`Imported "${p.name}"`);

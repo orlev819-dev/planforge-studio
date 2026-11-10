@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Viewer3D, type WallMode } from '../../../../packages/renderer-3d/src/webgl';
 import { buildFloorMesh, type MeshPart } from '../../../../packages/renderer-3d/src/mesh';
-import type { Floor } from '../../../../packages/shared-types/src/index';
+import type { Floor, ModelAsset } from '../../../../packages/shared-types/src/index';
 import { select, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
 
 /** Per-floor mesh cache: floors are immutable, so identity tells us when to rebuild. */
-const meshCache = new WeakMap<Floor, Map<string, MeshPart[]>>();
-function floorMesh(f: Floor, ceilings: boolean) {
-  let m = meshCache.get(f);
-  if (!m) { m = new Map(); meshCache.set(f, m); }
+const meshCache = new WeakMap<Floor, WeakMap<object, Map<string, MeshPart[]>>>();
+function floorMesh(f: Floor, ceilings: boolean, assets: Record<string, ModelAsset>) {
+  let byAssets = meshCache.get(f);
+  if (!byAssets) { byAssets = new WeakMap(); meshCache.set(f, byAssets); }
+  let m = byAssets.get(assets);
+  if (!m) { m = new Map(); byAssets.set(assets, m); }
   const k = String(ceilings);
-  if (!m.has(k)) m.set(k, buildFloorMesh(f, { ceilings }));
+  if (!m.has(k)) m.set(k, buildFloorMesh(f, { ceilings, assets }));
   return m.get(k)!;
 }
+const NO_ASSETS: Record<string, ModelAsset> = {};
 
 export function Viewer3DView() {
   const { t } = useT();
@@ -38,7 +41,7 @@ export function Viewer3DView() {
     return () => { viewer.current?.dispose(); viewer.current = null; };
   }, []);
 
-  const parts = useMemo(() => (allFloors ? project.floors : [floor]).flatMap((f) => floorMesh(f, ceilings)), [project.floors, floor, allFloors, ceilings]);
+  const parts = useMemo(() => (allFloors ? project.floors : [floor]).flatMap((f) => floorMesh(f, ceilings, project.assets ?? NO_ASSETS)), [project.floors, project.assets, floor, allFloors, ceilings]);
   const first = useRef(true);
   useEffect(() => {
     const v = viewer.current; if (!v) return;

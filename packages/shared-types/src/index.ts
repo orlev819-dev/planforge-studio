@@ -117,6 +117,17 @@ export interface Floor {
   reference: ReferenceImage | null;
 }
 
+/** User-imported 3D model (OBJ/STL) stored with the project. Triangle soup, meters, Y-up, centred, base at y=0. */
+export interface ModelAsset {
+  id: ID; name: string; format: 'obj' | 'stl'; triangles: number;
+  size: { x: number; y: number; z: number };
+  /** convex footprint in plan (x, z) meters, for 2D drawings */
+  hull: Vec2[];
+  color: string;
+  /** base64 Float32 triangle positions */
+  data: string;
+}
+
 export interface ProjectSettings { unit: LengthUnit; precision: number; showGrid: boolean; snap: boolean }
 
 export interface Project {
@@ -132,6 +143,7 @@ export interface Project {
   rev: number;
   settings: ProjectSettings;
   floors: Floor[];
+  assets: Record<ID, ModelAsset>;
 }
 
 export class GeometryError extends Error {

@@ -2,7 +2,7 @@
  * Renderer-independent 2D drawing list. The editor canvas, SVG, DXF and PDF exporters all render
  * these primitives, so every output shows identical geometry.
  */
-import type { Floor, LengthUnit, Vec2, Wall } from '../../shared-types/src/index';
+import type { Floor, LengthUnit, ModelAsset, Vec2, Wall } from '../../shared-types/src/index';
 import {
   add, dist, furnitureCorners, formatArea, formatLength, norm, openingGeometry, perp, pointInPolygon, pt, roomMetrics, roomPoints,
   scale, sub, wallEnds, edgeKey,
@@ -19,6 +19,8 @@ export type Prim =
 export interface DrawingOptions {
   unit: LengthUnit; precision: number;
   furniture?: boolean; dimensions?: boolean; annotations?: boolean; labels?: boolean; ceilings?: boolean;
+  /** project model assets, so imported objects are drawn with their real footprint */
+  assets?: Record<string, ModelAsset>;
   colors?: Partial<typeof DEFAULT_COLORS>;
 }
 
@@ -118,6 +120,15 @@ export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
   if (opts.furniture !== false)
     for (const fu of Object.values(f.furniture)) {
       const c = furnitureCorners(fu);
+      const asset = fu.meta.modelId ? opts.assets?.[fu.meta.modelId] : undefined;
+      if (asset && asset.hull.length >= 3) {
+        const r = (fu.rotation * Math.PI) / 180, cs = Math.cos(r), sn = Math.sin(r), m = fu.mirrored ? -1 : 1;
+        const sx = fu.width / asset.size.x, sz = fu.depth / asset.size.z;
+        const hull = asset.hull.map((h) => { const x = h.x * sx * m, y = h.y * sz; return { x: fu.x + x * cs - y * sn, y: fu.y + x * sn + y * cs }; });
+        out.push({ t: 'poly', layer: 'furniture', pts: hull, closed: true, fill: C.furnitureFill, stroke: C.furniture, width: 0.012, id: fu.id });
+        out.push({ t: 'poly', layer: 'furniture', pts: c, closed: true, stroke: C.furniture, width: 0.004, dash: true, id: fu.id });
+        continue;
+      }
       out.push({ t: 'poly', layer: 'furniture', pts: c, closed: true, fill: C.furnitureFill, stroke: C.furniture, width: 0.012, id: fu.id });
       const shape = fu.meta.shape;
       const r = (fu.rotation * Math.PI) / 180, ux = { x: Math.cos(r), y: Math.sin(r) }, uy = { x: -Math.sin(r), y: Math.cos(r) };

@@ -36,10 +36,11 @@ const m4 = {
 
 const VS = `attribute vec3 aPos; attribute vec3 aNor; uniform mat4 uMVP; varying vec3 vN; varying vec3 vP;
 void main(){ vN = aNor; vP = aPos; gl_Position = uMVP * vec4(aPos,1.0); }`;
-const FS = `precision mediump float; varying vec3 vN; varying vec3 vP; uniform vec4 uColor; uniform vec3 uLight; uniform float uPick; uniform float uHi;
+const FS = `precision mediump float; varying vec3 vN; varying vec3 vP; uniform vec4 uColor; uniform vec3 uLight; uniform float uPick; uniform float uHi; uniform float uTwo;
 void main(){
   if (uPick > 0.5) { gl_FragColor = uColor; return; }
   vec3 n = normalize(vN);
+  if (uTwo > 0.5 && !gl_FrontFacing) n = -n;
   float d = max(dot(n, normalize(uLight)), 0.0);
   float d2 = max(dot(n, normalize(vec3(-0.4, 0.6, -0.7))), 0.0);
   float hemi = 0.5 + 0.5 * n.y;
@@ -91,7 +92,7 @@ export class Viewer3D {
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) ?? 'link');
     this.prog = p;
     for (const a of ['aPos', 'aNor']) this.loc[a] = gl.getAttribLocation(p, a);
-    for (const u of ['uMVP', 'uColor', 'uLight', 'uPick', 'uHi']) this.loc[u] = gl.getUniformLocation(p, u)!;
+    for (const u of ['uMVP', 'uColor', 'uLight', 'uPick', 'uHi', 'uTwo']) this.loc[u] = gl.getUniformLocation(p, u)!;
     this.attachControls();
     const loop = () => { this.raf = requestAnimationFrame(loop); this.stepWalk(); if (this.dirty) { this.dirty = false; this.draw(); } };
     this.raf = requestAnimationFrame(loop);
@@ -175,6 +176,7 @@ export class Viewer3D {
       const col = pick ? g.pickColor : g.part.kind === 'wall' && this.wallMode === 'transparent' ? [g.part.color[0], g.part.color[1], g.part.color[2], 0.3] : g.part.color;
       gl.uniform4fv(this.loc.uColor as WebGLUniformLocation, col as number[]);
       gl.uniform1f(this.loc.uHi as WebGLUniformLocation, !pick && this.selectedId === g.part.id ? 1 : 0);
+      gl.uniform1f(this.loc.uTwo as WebGLUniformLocation, g.part.twoSided ? 1 : 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, g.vbo); gl.enableVertexAttribArray(this.loc.aPos as number); gl.vertexAttribPointer(this.loc.aPos as number, 3, gl.FLOAT, false, 0, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, g.nbo); gl.enableVertexAttribArray(this.loc.aNor as number); gl.vertexAttribPointer(this.loc.aNor as number, 3, gl.FLOAT, false, 0, 0);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, g.ibo);
