@@ -68,4 +68,6 @@ self.addEventListener('fetch',e=>{
 });
 `);
 console.log(`built ${files.length} files -> ${out}`);
-if (!existsSync(join(out, 'assets/main.js'))) process.exit(1);
+// sanity: the page must exist and point at the bundle that was just written
+const htmlOut = readFileSync(join(out, 'index.html'), 'utf8');
+if (!existsSync(join(out, entryJs.replace('./', ''))) || !htmlOut.includes(entryJs)) { console.error('build output is inconsistent'); process.exit(1); }

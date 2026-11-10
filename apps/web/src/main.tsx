@@ -17,7 +17,8 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:' && !navigator.
     location.reload();
   });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then((reg) => {
+    // ?v=<build> + updateViaCache:'none' so the worker script is never served from the HTTP cache
+    navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(BUILD_ID)}`, { updateViaCache: 'none' }).then((reg) => {
       reg.update().catch(() => { /* offline */ });
       setInterval(() => reg.update().catch(() => { /* offline */ }), 60 * 60 * 1000);
     }).catch(() => { /* offline cache unavailable */ });
