@@ -106,7 +106,11 @@ table.report { border-collapse: collapse; width: 100%; margin-top: 12px; backgro
   .stage.view-split { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
 }
 .laser { position: relative; }
-.laser-pop { position: absolute; top: 34px; inset-inline-end: 0; width: 300px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 10px 12px; z-index: 20; }
+.laser-btn { gap: 6px; }
+.laser-btn .dot { width: 9px; height: 9px; border-radius: 50%; background: #adb5bd; display: inline-block; }
+.laser-btn.ok .dot { background: #2f9e44; } .laser-btn.busy .dot { background: #f59f00; } .laser-btn.bad .dot { background: #e03131; }
+/* fixed, so the horizontally scrolling tablet top bar cannot clip it */
+.laser-pop { position: fixed; width: min(330px, calc(100vw - 16px)); max-height: min(70vh, 560px); overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; z-index: 60; }
 .laser-pop h4 { margin: 0 0 4px; } .laser-pop p { margin: 6px 0; }
 .laser-log { font-size: 10.5px; max-height: 160px; overflow: auto; background: var(--panel-2); padding: 6px; border-radius: 4px; white-space: pre-wrap; direction: ltr; text-align: left; }
 .grid2 > * { min-width: 0; } .field-input input { min-width: 0; width: 100%; }
@@ -155,7 +159,7 @@ table.report { border-collapse: collapse; width: 100%; margin-top: 12px; backgro
   .modal { width: min(680px, 96vw); max-height: 88dvh; }
   .card-actions .btn { min-height: 36px; }
   .viewer-toolbar { gap: 6px; padding: 8px; }
-  .laser-pop { width: 330px; }
+  .laser-pop { width: min(360px, calc(100vw - 16px)); padding: 14px 16px; }
 }
 /* drawer: touch screens narrower than iPad landscape (portrait iPads, split view) */
 @media (pointer: coarse) and (max-width: 1179px) {

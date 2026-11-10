@@ -1,20 +1,46 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLaser, connectLaser, disconnectLaser } from '../laser';
 import { useStore } from '../store';
 import { formatLength } from '../../../../packages/geometry/src/index';
 import { useT } from '../i18n';
+import { Icon } from './Icon';
 
 export function LaserButton() {
   const { t } = useT();
   const l = useLaser();
   const unit = useStore((s) => s.project?.settings.unit ?? 'm');
   const [open, setOpen] = useState(false);
-  const dot = l.status === 'connected' ? '🟢' : l.status === 'connecting' || l.status === 'reconnecting' ? '🟡' : l.status === 'error' ? '🔴' : '⚪';
+  const btn = useRef<HTMLButtonElement | null>(null);
+  const pop = useRef<HTMLDivElement | null>(null);
+  // the top bar scrolls horizontally on tablets, so the panel is positioned in the viewport, not inside it
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const place = () => {
+    const b = btn.current?.getBoundingClientRect();
+    if (!b) return;
+    const w = Math.min(330, window.innerWidth - 16);
+    setPos({ top: Math.round(b.bottom + 8), left: Math.round(Math.max(8, Math.min(window.innerWidth - w - 8, b.right - w))) });
+  };
+  useEffect(() => {
+    if (!open) return;
+    place();
+    const onDown = (e: PointerEvent) => {
+      const tgt = e.target as Node;
+      if (!pop.current?.contains(tgt) && !btn.current?.contains(tgt)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', place);
+    return () => { window.removeEventListener('pointerdown', onDown, true); window.removeEventListener('keydown', onKey); window.removeEventListener('resize', place); };
+  }, [open]);
+  const status = l.status === 'connected' ? 'ok' : l.status === 'connecting' || l.status === 'reconnecting' ? 'busy' : l.status === 'error' ? 'bad' : 'off';
   return (
     <div className="laser">
-      <button className="btn sm" data-testid="laser-open" onClick={() => setOpen(!open)} title={t('laser')}>📏 {dot}</button>
+      <button ref={btn} className={`btn sm laser-btn ${status}`} data-testid="laser-open" onClick={() => setOpen(!open)} title={t('laser')} aria-expanded={open}>
+        <Icon name="ruler" size={18} /><i className="dot" />
+      </button>
       {open && (
-        <div className="laser-pop" data-testid="laser-panel">
+        <div ref={pop} className="laser-pop" data-testid="laser-panel" style={pos ? { top: pos.top, left: pos.left } : { visibility: 'hidden' }}>
           <h4>{t('laser')}</h4>
           <div className="muted sm">Bosch GLM 50-27 C / CG</div>
           <p data-testid="laser-status"><b>{t(`laser_${l.status}` as 'laser_idle')}</b>{l.device ? ` · ${l.device}` : ''}{l.detail && l.status !== 'connected' ? ` · ${l.detail}` : ''}</p>

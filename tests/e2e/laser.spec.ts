@@ -82,3 +82,26 @@ test('all connect attempts fail -> error with tips and log', async ({ page }) =>
   await expect(page.getByTestId('laser-tips')).toContainText('MeasureOn');
   await expect(page.getByTestId('laser-log')).toContainText('attempt 4 failed');
 });
+
+test('laser panel is fully visible on a tablet top bar and closes on outside tap', async ({ page }) => {
+  await page.setViewportSize({ width: 834, height: 1194 });
+  await page.goto('/');
+  await page.getByTestId('new-project').click();
+  await page.getByTestId('project-name-input').fill('Panel');
+  await page.getByTestId('project-submit').click();
+  await page.getByTestId('laser-open').click();
+  const pop = page.getByTestId('laser-panel');
+  await expect(pop).toBeVisible();
+  const b = (await pop.boundingBox())!;
+  const vp = page.viewportSize()!;
+  expect(b.x).toBeGreaterThanOrEqual(0);
+  expect(b.y).toBeGreaterThanOrEqual(0);
+  expect(b.x + b.width).toBeLessThanOrEqual(vp.width + 1);
+  expect(b.y + b.height).toBeLessThanOrEqual(vp.height + 1);
+  // not clipped by any scrolling ancestor
+  expect(await pop.evaluate((el) => { const r = el.getBoundingClientRect(); const top = document.elementFromPoint(r.x + r.width / 2, r.y + 10); return el.contains(top); })).toBe(true);
+  await page.getByTestId('laser-connect').click();
+  await expect(page.getByTestId('laser-status')).toContainText('Connected');
+  await page.mouse.click(400, 700);
+  await expect(pop).toHaveCount(0);
+});

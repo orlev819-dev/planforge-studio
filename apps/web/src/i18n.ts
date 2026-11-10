@@ -33,7 +33,7 @@ const en = {
   laserTarget_field: 'entered in field', laserTarget_drawing: 'placed drawing point', laserTarget_wall: 'set selected wall length', laserTarget_none: 'not applied',
   laserTips: 'Close MeasureOn on your phone (or turn the phone Bluetooth off): the GLM accepts one connection|If the GLM is paired in Windows Settings > Bluetooth, remove it there, then try again|Make sure Bluetooth is on in the GLM (BT symbol on its display) and the device is awake|Press Connect again: on Windows it often succeeds on the second try',
   laserInsecure: 'Browsers allow Bluetooth only on secure pages (https:// or localhost). On the server PC open http://localhost:8080; on other devices it is not available over plain http.',
-  laserUnsupported: 'Use Chrome or Edge on Windows/Android/macOS with Bluetooth turned on.',
+  laserUnsupported: 'This browser has no Web Bluetooth. On Windows/Android/macOS use Chrome or Edge; on iPhone/iPad neither Safari nor Chrome support it — use the Bluefy browser.',
   laserHow: 'Turn on Bluetooth on the GLM, click Connect and pick it. Each measurement goes into the focused length field, the wall/room you are drawing (toward the cursor), or the selected wall.',
   laserNote: 'Protocol is community-documented (not an official Bosch SDK). Close the MeasureOn app first — the device accepts one connection.',
 };
@@ -69,7 +69,7 @@ const he: Dict = {
   laserTarget_field: 'הוזן לשדה', laserTarget_drawing: 'מוקמה נקודת שרטוט', laserTarget_wall: 'נקבע אורך הקיר הנבחר', laserTarget_none: 'לא הוחל',
   laserTips: 'סגרו את MeasureOn בטלפון (או כבו בו בלוטות׳): המד מקבל חיבור אחד בלבד|אם ה-GLM מצומד ב-Windows (הגדרות > Bluetooth), הסירו אותו משם ונסו שוב|ודאו שהבלוטות׳ דלוק במד (סמל BT בתצוגה) ושהמד לא במצב שינה|לחצו שוב «התחבר»: ב-Windows זה מצליח לעיתים רק בניסיון השני',
   laserInsecure: 'דפדפנים מאפשרים בלוטות׳ רק בדף מאובטח (https:// או localhost). במחשב השרת פתחו http://localhost:8080; במכשירים אחרים דרך http רגיל זה לא זמין.',
-  laserUnsupported: 'השתמשו ב-Chrome או Edge עם בלוטות\' פעיל.',
+  laserUnsupported: 'בדפדפן הזה אין Web Bluetooth. ב-Windows/אנדרואיד/macOS השתמשו ב-Chrome או Edge; באייפון ואייפד גם Safari וגם Chrome לא תומכים – השתמשו בדפדפן Bluefy.',
   laserHow: 'הפעילו בלוטות\' במד, לחצו "התחבר" ובחרו אותו. כל מדידה נכנסת לשדה האורך הפעיל, לקיר/חדר שאתם משרטטים (לכיוון הסמן), או לקיר הנבחר.',
   laserNote: 'הפרוטוקול מתועד ע"י הקהילה (לא SDK רשמי של בוש). סגרו קודם את אפליקציית MeasureOn – המכשיר מקבל חיבור אחד בלבד.',
 };
