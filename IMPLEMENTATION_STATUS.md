@@ -32,6 +32,7 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | Railings | balcony/stair railing as a wall type: own tool (`B`), or switch any wall to a railing and back; styles bars / glass / low parapet; height (default 1.05 m, validated 0.20–2.00 m), thickness, material; open in 2D (rails, balusters, posts) and in 3D (posts + handrail + bars/glass/parapet); excluded from paintable wall area and reported as railing length; doors/windows refused on railings | ✅ |
 | Openings | door types single/double/sliding/pocket/folding/double-sliding/custom; window fixed/sliding/casement/double/floor-to-ceiling/custom; width/height/sill/offset/hinge/swing/material/frame depth; 2D arcs; 3D holes; preserved through wall edits/splits | ✅ |
 | Measurements | auto wall dimensions, manual dimensions, gross/net area, perimeter, volume, wall/ceiling area, opening area, object-to-wall distance, mm/cm/m/ft-in, precision | ✅ |
+| Measurements | **interior (inside face to inside face) mode**: per-project toggle that switches the room panel fields, the plan/PDF/SVG/DXF dimension lines and the room label to net values; interior lengths are directly editable (anchored corner stays, neighbouring wall thicknesses accounted for, works on angled rooms) | ✅ |
 | Measurements | angle dimension objects, configurable rounding modes | ❌ |
 | 3D | orbit/pan/zoom, top, perspective, isometric, walk/first-person, roof/ceilings toggle, solid/transparent/hidden walls, floor selection, picking, incremental updates, materials as colours | ✅ |
 | 3D | shadows, PBR textures | ❌ |

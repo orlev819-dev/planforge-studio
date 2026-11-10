@@ -2,9 +2,9 @@
  * Renderer-independent 2D drawing list. The editor canvas, SVG, DXF and PDF exporters all render
  * these primitives, so every output shows identical geometry.
  */
-import type { Floor, LengthUnit, ModelAsset, Vec2, Wall } from '../../shared-types/src/index';
+import type { Floor, LengthUnit, MeasureMode, ModelAsset, Vec2, Wall } from '../../shared-types/src/index';
 import {
-  add, dist, furnitureCorners, formatArea, formatLength, norm, openingGeometry, perp, pointInPolygon, pt, roomMetrics, roomPoints,
+  add, dist, furnitureCorners, formatArea, formatLength, norm, openingGeometry, perp, pointInPolygon, pt, roomMetrics, roomEdgeWalls, roomPoints,
   scale, sub, wallEnds, edgeKey,
 } from '../../geometry/src/index';
 
@@ -19,6 +19,8 @@ export type Prim =
 export interface DrawingOptions {
   unit: LengthUnit; precision: number;
   furniture?: boolean; dimensions?: boolean; annotations?: boolean; labels?: boolean; ceilings?: boolean;
+  /** 'interior' dimensions the inside faces of the walls and labels rooms with their net area */
+  measure?: MeasureMode;
   /** project model assets, so imported objects are drawn with their real footprint */
   assets?: Record<string, ModelAsset>;
   colors?: Partial<typeof DEFAULT_COLORS>;
@@ -93,6 +95,7 @@ export function railingPrims(f: Floor, w: Wall, color: string): Prim[] {
 
 export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
   const C = { ...DEFAULT_COLORS, ...(opts.colors ?? {}) };
+  const interior = opts.measure === 'interior';
   const out: Prim[] = [];
   const fmtL = (m: number) => formatLength(m, opts.unit, opts.precision);
   const deg = wallDegree(f);
@@ -194,10 +197,39 @@ export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
     for (const r of Object.values(f.rooms)) {
       const m = roomMetrics(f, r);
       out.push({ t: 'text', layer: 'text', p: { x: m.labelPoint.x, y: m.labelPoint.y - 0.13 }, text: r.name, size: 0.2, color: C.text, bold: true, id: r.id });
-      out.push({ t: 'text', layer: 'text', p: { x: m.labelPoint.x, y: m.labelPoint.y + 0.15 }, text: formatArea(m.grossArea, opts.unit, opts.precision), size: 0.16, color: C.text, id: r.id });
+      out.push({ t: 'text', layer: 'text', p: { x: m.labelPoint.x, y: m.labelPoint.y + 0.15 }, text: formatArea(interior ? m.netArea : m.grossArea, opts.unit, opts.precision), size: 0.16, color: C.text, id: r.id });
     }
 
-  if (opts.dimensions !== false) {
+  if (opts.dimensions !== false && interior) {
+    // inside-face dimensions, one chain per room, placed outside the room
+    for (const r of Object.values(f.rooms)) {
+      const m = roomMetrics(f, r);
+      const inset = m.insetPoints;
+      if (!inset) continue;
+      const poly = roomPoints(f, r);
+      const walls = roomEdgeWalls(f, r);
+      for (let i = 0; i < inset.length; i++) {
+        const a = inset[i], b = inset[(i + 1) % inset.length];
+        const L = dist(a, b);
+        if (L < 0.05) continue;
+        const n = perp(norm(sub(b, a)));
+        const mid = scale(add(a, b), 0.5);
+        const side = pointInPolygon(add(mid, scale(n, 0.02)), poly) ? -1 : 1;
+        const off = scale(n, side * ((walls[i]?.thickness ?? 0.1) / 2 + 0.45));
+        out.push({ t: 'dim', layer: 'dimensions', a, b, off, text: fmtL(L), size: 0.13, color: C.dim, id: walls[i]?.id ?? r.id });
+      }
+    }
+    for (const w of Object.values(f.walls)) {
+      if (!w.standalone) continue;
+      const { a, b } = wallEnds(f, w);
+      const n = perp(norm(sub(b, a)));
+      out.push({ t: 'dim', layer: 'dimensions', a, b, off: scale(n, w.thickness / 2 + 0.25), text: fmtL(dist(a, b)), size: 0.13, color: C.dim, id: w.id });
+    }
+    for (const d of Object.values(f.dimensions)) {
+      const n = perp(norm(sub(d.b, d.a)));
+      out.push({ t: 'dim', layer: 'dimensions', a: d.a, b: d.b, off: scale(n, d.offset), text: fmtL(dist(d.a, d.b)), size: 0.13, color: C.dim, id: d.id });
+    }
+  } else if (opts.dimensions !== false) {
     const roomsByEdge = new Map<string, Vec2[]>();
     for (const r of Object.values(f.rooms)) { const pts = roomPoints(f, r); r.vertexIds.forEach((v, i) => roomsByEdge.set(edgeKey(v, r.vertexIds[(i + 1) % r.vertexIds.length]), pts)); }
     for (const w of Object.values(f.walls)) {

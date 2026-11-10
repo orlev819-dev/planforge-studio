@@ -21,7 +21,7 @@ export async function rasterizeText(text: string, o: { bold: boolean; color: str
   return { png: new Uint8Array(await blob.arrayBuffer()), width: w, height: h };
 }
 
-export function rasterPlan(floor: Parameters<typeof buildDrawing>[0], unit: Parameters<typeof buildDrawing>[1]['unit'], precision: number, dpi: number, type: 'image/png' | 'image/jpeg', opts: { furniture: boolean; dimensions: boolean; annotations: boolean; assets?: Parameters<typeof buildDrawing>[1]['assets'] }): Promise<Blob> {
+export function rasterPlan(floor: Parameters<typeof buildDrawing>[0], unit: Parameters<typeof buildDrawing>[1]['unit'], precision: number, dpi: number, type: 'image/png' | 'image/jpeg', opts: { furniture: boolean; dimensions: boolean; annotations: boolean; assets?: Parameters<typeof buildDrawing>[1]['assets']; measure?: Parameters<typeof buildDrawing>[1]['measure'] }): Promise<Blob> {
   const prims = buildDrawing(floor, { unit, precision, ...opts });
   const b = drawingBounds(prims);
   const pxPerM = (dpi / 25.4) * (1000 / 50); // 1:50 at the requested DPI
@@ -73,10 +73,10 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           download(`${base}.pdf`, bytes as BlobPart, 'application/pdf');
           break;
         }
-        case 'svg': download(`${base}_${safeName(floor.name)}.svg`, toSVG(buildDrawing(floor, { assets: project.assets, unit, precision, furniture, dimensions, annotations }), { title: project.name }), 'image/svg+xml'); break;
-        case 'dxf': download(`${base}_${safeName(floor.name)}.dxf`, toDXF(buildDrawing(floor, { assets: project.assets, unit, precision, furniture, dimensions, annotations })), 'application/dxf'); break;
+        case 'svg': download(`${base}_${safeName(floor.name)}.svg`, toSVG(buildDrawing(floor, { assets: project.assets, measure: project.settings.measure, unit, precision, furniture, dimensions, annotations }), { title: project.name }), 'image/svg+xml'); break;
+        case 'dxf': download(`${base}_${safeName(floor.name)}.dxf`, toDXF(buildDrawing(floor, { assets: project.assets, measure: project.settings.measure, unit, precision, furniture, dimensions, annotations })), 'application/dxf'); break;
         case 'png': case 'jpeg': {
-          const blob = await rasterPlan(floor, unit, precision, dpi, format === 'png' ? 'image/png' : 'image/jpeg', { furniture, dimensions, annotations, assets: project.assets });
+          const blob = await rasterPlan(floor, unit, precision, dpi, format === 'png' ? 'image/png' : 'image/jpeg', { furniture, dimensions, annotations, assets: project.assets, measure: project.settings.measure });
           download(`${base}_${safeName(floor.name)}.${format === 'png' ? 'png' : 'jpg'}`, blob, blob.type);
           break;
         }

@@ -84,7 +84,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
 
   const shown = preview ?? floor;
   const assets = useStore((s) => s.project!.assets);
-  const prims = useMemo(() => buildDrawing(shown, { unit: settings.unit, precision: settings.precision, assets }), [shown, settings.unit, settings.precision, assets]);
+  const prims = useMemo(() => buildDrawing(shown, { unit: settings.unit, precision: settings.precision, assets, measure: settings.measure }), [shown, settings.unit, settings.precision, settings.measure, assets]);
   const hidden = useMemo(() => {
     const h = new Set<Layer>();
     (Object.keys(layers) as LayerKey[]).forEach((k) => { if (!layers[k]) LAYER_MAP[k].forEach((l) => h.add(l)); });

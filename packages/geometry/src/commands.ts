@@ -8,6 +8,7 @@ import { GeometryError } from '../../shared-types/src/index';
 import { add, cleanPt, dist, dot, norm, perp, projectOnSegment, rotate, samePoint, scale, sub, MERGE_TOL, clean, segmentsProperlyIntersect } from './vec';
 import { centroid, pointInPolygon, polygonsOverlap, signedArea, validatePolygon, bbox, interiorPoint } from './polygon';
 import { DEFAULT_RAILING_HEIGHT, edgeKey, furnitureCorners, openingGeometry, pt, roomPoints, uid, wallEnds, wallHeight, wallLength } from './model';
+import { roomEdgeWalls, roomMetrics } from './measure';
 
 const fail = (code: string, msg: string): never => { throw new GeometryError(code, msg); };
 const copy = <T>(x: T): T => structuredClone(x);
@@ -414,6 +415,33 @@ export function setWallLength(prev: Floor, wallId: ID, length: number, anchor: '
   const deltas: Record<ID, Vec2> = {};
   for (const id of moving) deltas[id] = delta;
   return moveVertices(prev, deltas);
+}
+
+/**
+ * Set the interior (inside face to inside face) length of a room edge.
+ * Works by converting to the centerline length the wall needs; the wall-to-wall corner angles are
+ * unchanged by setWallLength, so one pass is exact for orthogonal rooms — angled rooms converge in a
+ * couple of iterations. The edge's first corner stays put (or its second with anchor 'b').
+ */
+export function setRoomEdgeInteriorLength(prev: Floor, roomId: ID, edgeIndex: number, target: number, anchor: 'a' | 'b' = 'a'): Floor {
+  const room0 = prev.rooms[roomId];
+  if (!room0) fail('missing', 'Room not found');
+  if (!(edgeIndex >= 0 && edgeIndex < room0.vertexIds.length)) fail('edge', 'That wall is not part of the room.');
+  if (!(target >= 0.05)) fail('length', 'Interior length must be at least 5 cm.');
+  let f = prev;
+  for (let pass = 0; pass < 4; pass++) {
+    const room = f.rooms[roomId];
+    const w = roomEdgeWalls(f, room)[edgeIndex];
+    if (!w) return fail('missing', 'Wall not found');
+    const m = roomMetrics(f, room);
+    const cur = m.netEdgeLengths[edgeIndex];
+    if (!(cur > 0)) fail('thickness', 'The walls are too thick for this room.');
+    const delta = target - cur;
+    if (Math.abs(delta) < 1e-6) return f;
+    const startVertex = room.vertexIds[anchor === 'a' ? edgeIndex : (edgeIndex + 1) % room.vertexIds.length];
+    f = setWallLength(f, w.id, wallLength(f, w) + delta, w.a === startVertex ? 'a' : 'b');
+  }
+  return f;
 }
 
 export function setWallAngle(prev: Floor, wallId: ID, deg: number): Floor {

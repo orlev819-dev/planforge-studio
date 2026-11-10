@@ -21,6 +21,10 @@ export interface RoomMetrics {
   doors: number;
   windows: number;
   edgeLengths: number[];
+  /** interior (inside face to inside face) length of each edge */
+  netEdgeLengths: number[];
+  /** interior outline (null when the walls are too thick for the room) */
+  insetPoints: Vec2[] | null;
   labelPoint: Vec2;
   /** length of the room's edges that are railings rather than solid walls */
   railingLength: number;
@@ -73,7 +77,8 @@ export function roomMetrics(f: Floor, r: Room): RoomMetrics {
     roomId: r.id, name: r.name, grossArea, netArea, perimeter: perimeter(pts), netPerimeter, height: r.height,
     volume: netArea * r.height - loweredVolume, ceilingArea: netArea, wallArea: Math.max(0, (netPerimeter - railingLength) * r.height - openingArea), openingArea,
     doors: openings.filter((o) => o.kind === 'door').length, windows: openings.filter((o) => o.kind === 'window').length,
-    edgeLengths: pts.map((p, i) => dist(p, pts[(i + 1) % pts.length])), labelPoint: interiorPoint(pts),
+    edgeLengths: pts.map((p, i) => dist(p, pts[(i + 1) % pts.length])), netEdgeLengths: pts.map((_, i) => netEdge(i)), labelPoint: interiorPoint(pts),
+    insetPoints: inset,
   };
 }
 

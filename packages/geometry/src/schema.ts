@@ -43,7 +43,7 @@ export const FloorSchema = z.object({
 export const ProjectSchema = z.object({
   schemaVersion: z.literal(1), id, name: z.string(), address: z.string(), description: z.string(),
   status: z.enum(['active', 'archived', 'deleted']), isDemo: z.boolean(), createdAt: z.number(), updatedAt: z.number(), rev: z.number().int(),
-  settings: z.object({ unit: z.enum(['mm', 'cm', 'm', 'ft-in']), precision: z.number().int().min(0).max(4), showGrid: z.boolean(), snap: z.boolean() }),
+  settings: z.object({ unit: z.enum(['mm', 'cm', 'm', 'ft-in']), precision: z.number().int().min(0).max(4), showGrid: z.boolean(), snap: z.boolean(), measure: z.enum(['centerline', 'interior']).default('centerline') }),
   floors: z.array(FloorSchema).min(1),
   assets: z.record(z.string(), z.object({
     id, name: z.string(), format: z.enum(['obj', 'stl']), triangles: z.number().int().positive(),
@@ -55,7 +55,7 @@ export const ProjectSchema = z.object({
 /** Upgrade projects saved by older versions (adds fields introduced later). */
 export function migrateProject(p: Project): Project {
   return {
-    ...p, assets: p.assets ?? {},
+    ...p, assets: p.assets ?? {}, settings: { ...p.settings, measure: p.settings?.measure ?? 'centerline' },
     floors: p.floors.map((f) => ({
       ...f,
       ceilingDrops: f.ceilingDrops ?? {},

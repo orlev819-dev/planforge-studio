@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Unit tests (geometry, export, laser, ceilings, model import, railings) | `npm test` | ✅ 46 / 46 passed |
+| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions) | `npm test` | ✅ 53 / 53 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 18 / 18 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 20 / 20 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -34,6 +34,10 @@ E2E (1): draw zone with the tool → default 30 cm below ceiling → set 2.35 m 
 ## Model import tests
 Unit (5): binary = ASCII STL · OBJ quads / negative indices / v/vt/vn · mm→m, Z-up→Y-up, centring, hull · placed model scaled + rotated in 3D, 2D footprint, GLB export, JSON round-trip · unit auto-detect.
 E2E (1): upload STL (mm) → detected 0.600 × 0.400 × 0.750 m → place → 3D part → persists after reload.
+
+## Interior-dimension tests
+Unit (7): interior = centerline − half of each neighbouring wall (3.85 × 3.35 for a 4.00 × 3.50 room with 15 cm walls) · editing an interior length is exact, keeps the anchored corner and the other direction · different wall thicknesses on the two ends · angled rooms and railing edges converge · invalid values and a door that no longer fits are refused without changing the model · interior mode dimensions the inside faces and labels the net area · projects saved earlier default to centerline.
+E2E (1): switch the room panel to Interior → 3.85 / 3.35 → type a site measurement of 3.72 → net area and centerline geometry follow → PDF contains 3.72 m and 3.35 m and not the centerline value → switching back shows 3.87 m.
 
 ## Railing tests
 Unit (7): standalone railing defaults (1.05 m, thin, bars) · converting a room wall keeps the area, reports railing length, removes that side from paintable wall area, and converts back to a full wall · doors/windows refused both ways · height validation 0.20–2.00 m and kind preserved through geometry edits · 2D has no solid wall body and differs per style (+ DXF/SVG) · 3D is open posts/rail capped at railing height, 3 solid walls remain, glass style adds a translucent panel · old projects without `kind` migrate to solid.

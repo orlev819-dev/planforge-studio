@@ -135,7 +135,9 @@ export interface ModelAsset {
   data: string;
 }
 
-export interface ProjectSettings { unit: LengthUnit; precision: number; showGrid: boolean; snap: boolean }
+/** 'centerline' = wall axis to wall axis (structural); 'interior' = inside face to inside face (what a laser measures) */
+export type MeasureMode = 'centerline' | 'interior';
+export interface ProjectSettings { unit: LengthUnit; precision: number; showGrid: boolean; snap: boolean; measure: MeasureMode }
 
 export interface Project {
   schemaVersion: 1;

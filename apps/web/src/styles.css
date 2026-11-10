@@ -275,3 +275,6 @@ table.report { border-collapse: collapse; width: 100%; margin-top: 12px; backgro
   .pencil-hint { display: none; }
   .sidebar { inset-block: 8px; inset-inline-end: 8px; border-radius: var(--radius); }
 }
+.walls-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 4px; }
+.walls-head h4 { margin: 0; }
+.seg.sm button { padding: 3px 8px; font-size: 11.5px; }
