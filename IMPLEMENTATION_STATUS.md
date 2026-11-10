@@ -25,6 +25,7 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | Snapping | grid (adaptive), corner, midpoint, on-wall, alignment guides, 45° angle | ✅ |
 | Rooms | rectangle, freeform polygon, L/irregular/angled, connected (shared walls, T-junctions), exact-dimension dialog, attach to side | ✅ |
 | Rooms | internal cutouts (holes) | ❌ |
+| Ceilings | lowered ceiling / soffit zones: draw (tool `C`), move, size, rotate, height validated below room ceiling; 2D hatch + label, PDF/SVG/DXF (layer CEILINGS), 3D block; room volume reduced, lowered area + soffit side faces reported | ✅ |
 | Geometry edits | move/insert/delete corner, wall length and angle, move wall, split wall, merge collinear walls, split room, merge rooms, move/rotate room, validation messages | ✅ |
 | Walls | thickness, height (auto/override), exterior/interior (auto + manual), material, partition walls | ✅ |
 | Walls | partial-height walls | 🟡 (height override works; no dedicated UI preset) |

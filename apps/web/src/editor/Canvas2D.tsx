@@ -9,7 +9,7 @@ import { GeometryError } from '../../../../packages/shared-types/src/index';
 import {
   addAnnotation, addDimension, addFurniture, addOpening, addPartitionWall, addRoom, deleteEntity, dist, formatLength, furnitureCorners, insertCorner,
   moveRoom, moveVertex, moveWall, norm, openingGeometry, perp, pointInPolygon, projectOnSegment, roomPoints, sub, updateFurniture, updateOpening,
-  wallEnds, rotateRoom, objectToWallDistance, deleteCorner, mergeWallsAt, signedArea, polygonArea, formatArea, bbox, parseLength,
+  wallEnds, rotateRoom, objectToWallDistance, addCeilingDrop, updateCeilingDrop, ceilingAbove, deleteCorner, mergeWallsAt, signedArea, polygonArea, formatArea, bbox, parseLength,
 } from '../../../../packages/geometry/src/index';
 import { buildDrawing, drawingBounds, type Layer } from '../../../../packages/cad-io/src/drawing';
 import { catalogById } from '../../../../packages/shared-types/src/catalog';
@@ -27,6 +27,7 @@ type Hit =
   | { type: 'wall'; id: ID; t: number }
   | { type: 'dimension'; id: ID }
   | { type: 'annotation'; id: ID }
+  | { type: 'ceiling'; id: ID }
   | { type: 'room'; id: ID };
 
 interface Snap { p: Vec2; kind: 'none' | 'grid' | 'vertex' | 'midpoint' | 'wall' | 'angle'; guides: [Vec2, Vec2][] }
@@ -34,10 +35,10 @@ interface Snap { p: Vec2; kind: 'none' | 'grid' | 'vertex' | 'midpoint' | 'wall'
 type Interaction =
   | { kind: 'pan'; sx: number; sy: number; ox: number; oy: number }
   | { kind: 'drag'; hit: Hit; start: Vec2; base: Floor; moved: boolean; label: string; extra?: Record<string, number> }
-  | { kind: 'rect-room'; start: Vec2; sx: number; sy: number; moved: boolean }
+  | { kind: 'rect-room'; start: Vec2; sx: number; sy: number; moved: boolean; ceiling?: boolean }
   | { kind: 'marquee'; start: Vec2; sx: number; sy: number; additive: boolean };
 
-const LAYER_MAP: Record<LayerKey, Layer[]> = { rooms: ['rooms'], walls: ['walls'], openings: ['doors', 'windows'], furniture: ['furniture'], dimensions: ['dimensions'], text: ['text'], annotations: ['annotations'], reference: [] };
+const LAYER_MAP: Record<LayerKey, Layer[]> = { rooms: ['rooms'], walls: ['walls'], openings: ['doors', 'windows'], furniture: ['furniture'], ceilings: ['ceilings'], dimensions: ['dimensions'], text: ['text'], annotations: ['annotations'], reference: [] };
 
 let clipboard: { kind: 'furniture'; items: Floor['furniture'][string][] } | { kind: 'room'; pts: Vec2[]; name: string; height: number } | null = null;
 
@@ -191,6 +192,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     const furn = Object.values(f.furniture);
     for (let i = furn.length - 1; i >= 0; i--) if (pointInPolygon(w, furnitureCorners(furn[i]))) return { type: 'furniture', id: furn[i].id };
     for (const a of Object.values(f.annotations)) if (dist(a, w) < Math.max(0.3, tol)) return { type: 'annotation', id: a.id };
+    if (getState().layers.ceilings) for (const c of Object.values(f.ceilingDrops ?? {})) if (pointInPolygon(w, furnitureCorners(c))) return { type: 'ceiling', id: c.id };
     for (const d of Object.values(f.dimensions)) {
       const n = perp(norm(sub(d.b, d.a)));
       const a = { x: d.a.x + n.x * d.offset, y: d.a.y + n.y * d.offset }, b = { x: d.b.x + n.x * d.offset, y: d.b.y + n.y * d.offset };
@@ -328,7 +330,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
         nudge(e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0, e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0);
         return;
       }
-      const map: Record<string, Parameters<typeof setTool>[0]> = { v: 'select', h: 'pan', r: 'room', w: 'wall', d: 'door', n: 'window', m: 'dimension', e: 'eraser' };
+      const map: Record<string, Parameters<typeof setTool>[0]> = { v: 'select', h: 'pan', r: 'room', w: 'wall', d: 'door', n: 'window', m: 'dimension', e: 'eraser', c: 'ceiling' };
       if (map[k]) setTool(map[k]);
       if (k === 'g') setState((s) => ({ project: s.project && { ...s.project, settings: { ...s.project.settings, showGrid: !s.project.settings.showGrid } } }));
       if (k === 's') setState((s) => ({ project: s.project && { ...s.project, settings: { ...s.project.settings, snap: !s.project.settings.snap } } }));
@@ -384,16 +386,18 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
           if (e.shiftKey) select(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
           else if (!cur.includes(id)) select([id]);
         } else if (hit.type === 'vertex') select([id]);
-        const labels: Record<Hit['type'], string> = { vertex: 'Move corner', opening: 'Move opening', furniture: 'Move object', 'rotate-handle': 'Rotate object', 'resize-handle': 'Resize object', wall: 'Move wall', dimension: 'Select', annotation: 'Move note', room: 'Move room' };
+        const labels: Record<Hit['type'], string> = { vertex: 'Move corner', opening: 'Move opening', furniture: 'Move object', 'rotate-handle': 'Rotate object', 'resize-handle': 'Resize object', wall: 'Move wall', dimension: 'Select', annotation: 'Move note', room: 'Move room', ceiling: 'Move lowered ceiling' };
         const extra: Record<string, number> = {};
         if (hit.type === 'furniture' || hit.type === 'resize-handle' || hit.type === 'rotate-handle') { const fu = floor.furniture[id]; Object.assign(extra, { x: fu.x, y: fu.y, w: fu.width, d: fu.depth, r: fu.rotation }); }
         if (hit.type === 'annotation') { const a = floor.annotations[id]; Object.assign(extra, { x: a.x, y: a.y }); }
+        if (hit.type === 'ceiling') { const c = floor.ceilingDrops[id]; Object.assign(extra, { x: c.x, y: c.y }); }
         const room = getState().selection.length > 1 && hit.type === 'room';
         if (room) { /* multi-room drags are not supported; only select */ return; }
         inter.current = { kind: 'drag', hit, start: w, base: floor, moved: false, label: labels[hit.type], extra };
         return;
       }
       case 'room': inter.current = { kind: 'rect-room', start: sn.p, sx: s.x, sy: s.y, moved: false }; return;
+      case 'ceiling': inter.current = { kind: 'rect-room', start: sn.p, sx: s.x, sy: s.y, moved: false, ceiling: true }; return;
       case 'wall': {
         if (!wallStart) { setWallStart(sn.p); return; }
         if (dist(wallStart, sn.p) < 0.05) { setWallStart(null); return; }
@@ -504,6 +508,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
         next = tryCmd(() => updateOpening(base, h.id, { t: tt }));
         break;
       }
+      case 'ceiling': next = tryCmd(() => updateCeilingDrop(base, h.id, { x: +(it.extra!.x + q(dx)).toFixed(4), y: +(it.extra!.y + q(dy)).toFixed(4) })); break;
       case 'annotation': next = tryCmd(() => ({ ...base, annotations: { ...base.annotations, [h.id]: { ...base.annotations[h.id], x: it.extra!.x + q(dx), y: it.extra!.y + q(dy) } } })); break;
       default: break;
     }
@@ -521,6 +526,16 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     if (it.kind === 'drag') {
       if (it.moved && preview) { const p = preview; editFloor(it.label, () => p); }
       setPreview(null); setDragError(null);
+      return;
+    }
+    if (it.kind === 'rect-room' && it.ceiling) {
+      const b = snap(w, { alt: e.altKey }).p, a = it.start;
+      if (!it.moved || Math.abs(b.x - a.x) < 0.05 || Math.abs(b.y - a.y) < 0.05) { toast(t('hintCeiling'), 'error'); return; }
+      const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const top = ceilingAbove(floor, c);
+      let id: ID | null = null;
+      const ok = editFloor('Add lowered ceiling', (f) => { const r = addCeilingDrop(f, { ...c, width: Math.abs(b.x - a.x), depth: Math.abs(b.y - a.y), height: +Math.max(0.6, top - 0.3).toFixed(2), name: t('ceiling') }); id = r.id; return r.floor; });
+      if (ok && id) { select([id]); setTool('select'); }
       return;
     }
     if (it.kind === 'rect-room') {
@@ -685,7 +700,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     const it = inter.current;
     if (it?.kind === 'rect-room' && it.moved && hover) {
       const a = it.start, b = hover.snap.p, p0 = S(a), p1 = S(b);
-      ctx.fillStyle = 'rgba(29,124,242,0.12)'; ctx.strokeStyle = '#1d7cf2'; ctx.lineWidth = 2;
+      ctx.fillStyle = it.ceiling ? 'rgba(156,54,181,0.12)' : 'rgba(29,124,242,0.12)'; ctx.strokeStyle = it.ceiling ? '#9c36b5' : '#1d7cf2'; ctx.lineWidth = 2;
       ctx.fillRect(Math.min(p0.x, p1.x), Math.min(p0.y, p1.y), Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
       ctx.strokeRect(Math.min(p0.x, p1.x), Math.min(p0.y, p1.y), Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
       label(b, `${fmt(Math.abs(b.x - a.x))} × ${fmt(Math.abs(b.y - a.y))} = ${formatArea(Math.abs((b.x - a.x) * (b.y - a.y)), settings.unit, settings.precision)}`);
@@ -731,7 +746,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     if (hover) { const s = S(hover.snap.p); ctx.strokeStyle = '#e8590c'; ctx.beginPath(); ctx.moveTo(s.x, 0); ctx.lineTo(s.x, R); ctx.moveTo(0, s.y); ctx.lineTo(R, s.y); ctx.stroke(); }
   });
 
-  const hint = tool === 'room' ? t('hintRoom') : tool === 'wall' ? t('hintWall') : ['door', 'window', 'opening'].includes(tool) ? t('hintOpening') : tool === 'furniture' ? t('hintFurniture') : tool === 'dimension' ? t('hintDimension') : tool === 'corner' ? t('hintCorner') : tool === 'calibrate' ? t('calibrateHint') : null;
+  const hint = tool === 'ceiling' ? t('hintCeiling') : tool === 'room' ? t('hintRoom') : tool === 'wall' ? t('hintWall') : ['door', 'window', 'opening'].includes(tool) ? t('hintOpening') : tool === 'furniture' ? t('hintFurniture') : tool === 'dimension' ? t('hintDimension') : tool === 'corner' ? t('hintCorner') : tool === 'calibrate' ? t('calibrateHint') : null;
   const cursor = tool === 'pan' || inter.current?.kind === 'pan' ? 'grab' : tool === 'select' ? (hover?.hit ? (hover.hit.type === 'room' || hover.hit.type === 'furniture' || hover.hit.type === 'wall' ? 'move' : 'pointer') : 'default') : 'crosshair';
 
   const menuItems = (() => {

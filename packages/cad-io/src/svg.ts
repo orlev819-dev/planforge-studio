@@ -26,7 +26,7 @@ export function toSVG(prims: Prim[], opts: { scaleDenominator?: number; title?: 
         `<text x="${n(g.textAt.x)}" y="${n(g.textAt.y)}" font-size="${n(p.size)}" fill="${p.color}" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" transform="rotate(${n(g.angle)} ${n(g.textAt.x)} ${n(g.textAt.y)})">${esc(p.text)}</text></g>`);
     }
   }
-  const order = ['rooms', 'walls', 'windows', 'doors', 'furniture', 'dimensions', 'text', 'annotations'];
+  const order = ['rooms', 'walls', 'windows', 'doors', 'furniture', 'ceilings', 'dimensions', 'text', 'annotations'];
   for (const l of order) if (layers.has(l)) parts.push(`<g id="layer-${l}">${layers.get(l)!.join('')}</g>`);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${n(w * k)}mm" height="${n(h * k)}mm" viewBox="${n(x0)} ${n(y0)} ${n(w)} ${n(h)}">` +
     (opts.title ? `<title>${esc(opts.title)}</title>` : '') +

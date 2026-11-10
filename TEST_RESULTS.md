@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Geometry + export + laser unit tests | `npm test` | ✅ 30 / 30 passed |
+| Geometry + export + laser + ceiling unit tests | `npm test` | ✅ 34 / 34 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium) | `npm run test:e2e` | ✅ 7 / 7 passed |
+| End-to-end (real UI in Chromium) | `npm run test:e2e` | ✅ 8 / 8 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -27,7 +27,11 @@ CSV + JSON round-trip · exports reflect edits.
 ## Laser unit tests (3)
 Packet parser (valid / malformed / NaN / out-of-range — synthetic fixtures) · driver against a mock GATT: subscribe, enable command `C0 55 02 01 00 1A`, reading emitted, disconnect.
 
-## End-to-end tests (7)
+## Lowered ceiling tests
+Unit (4): convex clipping · volume reduction, lowered area, soffit side faces (flush-with-wall edge excluded) · height/size validation · 2D label, DXF layer, 3D block heights, re-id, old-project migration.
+E2E (1): draw zone with the tool → default 30 cm below ceiling → set 2.35 m → room shows 2.00 m² lowered → invalid 3 m rejected → 3D gains one part.
+
+## End-to-end tests (8)
 1. **Primary acceptance (§23):** new project “My Apartment” → Floor 1 (+ add floor) → draw a room with the mouse →
    type 4.00 / 3.50 → **14.00 m²** → connected 3 × 3.5 room (7 walls, 1 shared) → **80 cm door** on the shared wall →
    **120 cm window** → sofa + dining table → wall 4.00 → 4.50: living **15.75 m²**, kitchen **8.75 m²** → undo/redo →

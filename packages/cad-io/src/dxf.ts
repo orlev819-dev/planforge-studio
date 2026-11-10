@@ -5,7 +5,7 @@
 import type { Prim } from './drawing';
 import { dimGeometry, drawingBounds } from './drawing';
 
-const LAYERS: Record<string, number> = { rooms: 8, walls: 7, doors: 5, windows: 4, furniture: 9, dimensions: 1, text: 7, annotations: 6 };
+const LAYERS: Record<string, number> = { rooms: 8, walls: 7, doors: 5, windows: 4, furniture: 9, ceilings: 6, dimensions: 1, text: 7, annotations: 6 };
 const f = (x: number) => (Math.abs(x) < 1e-12 ? 0 : +x.toFixed(6)).toString();
 
 /** non-ASCII characters (e.g. Hebrew) as AutoCAD \U+XXXX escapes */

@@ -81,6 +81,9 @@ export interface Furniture {
 export interface Dimension { id: ID; a: Vec2; b: Vec2; offset: number }
 export interface Annotation { id: ID; x: number; y: number; text: string }
 
+/** Lowered ceiling / soffit / bulkhead: a rectangular zone where the ceiling is at `height` above the floor. */
+export interface CeilingDrop { id: ID; name: string; x: number; y: number; width: number; depth: number; rotation: number; height: number }
+
 export interface ReferenceImage {
   dataUrl: string;
   /** pixel size of the source image */
@@ -110,6 +113,7 @@ export interface Floor {
   furniture: Record<ID, Furniture>;
   dimensions: Record<ID, Dimension>;
   annotations: Record<ID, Annotation>;
+  ceilingDrops: Record<ID, CeilingDrop>;
   reference: ReferenceImage | null;
 }
 

@@ -4,9 +4,9 @@
  * Each part carries a `key` derived from its inputs so renderers can skip re-uploading unchanged parts.
  */
 import type { Floor, Furniture, Project, Vec2 } from '../../shared-types/src/index';
-import { add, dist, norm, openingGeometry, perp, roomPoints, scale, sub, triangulate, wallEnds, wallHeight, centroid } from '../../geometry/src/index';
+import { ceilingAbove, furnitureCorners, add, dist, norm, openingGeometry, perp, roomPoints, scale, sub, triangulate, wallEnds, wallHeight, centroid } from '../../geometry/src/index';
 
-export type PartKind = 'wall' | 'floor' | 'ceiling' | 'furniture' | 'glass' | 'door';
+export type PartKind = 'wall' | 'floor' | 'ceiling' | 'soffit' | 'furniture' | 'glass' | 'door';
 export interface MeshPart {
   key: string;
   id: string;
@@ -185,6 +185,12 @@ export function buildFloorMesh(f: Floor, opts: MeshOptions = {}): MeshPart[] {
     }
   }
   parts.push(...wallParts(f, deg));
+  for (const c of Object.values(f.ceilingDrops ?? {})) {
+    const top = ceilingAbove(f, c);
+    const B = new Builder();
+    B.prism(furnitureCorners(c), f.elevation + c.height, f.elevation + top);
+    parts.push({ key: JSON.stringify(['s', c, top, f.elevation]), id: c.id, kind: 'soffit', floorId: f.id, color: [0.93, 0.92, 0.9, 0.85], positions: B.positions, normals: B.normals, indices: B.indices });
+  }
   if (opts.furniture !== false) parts.push(...furnitureParts(f));
   return parts;
 }

@@ -3,7 +3,7 @@ import type { Floor, Opening } from '../../../../packages/shared-types/src/index
 import {
   roomMetrics, floorMetrics, wallMetrics, formatArea, formatLength, formatVolume, setWallLength, setWallAngle, updateWall, updateRoom, updateOpening,
   updateFurniture, moveVertex, roomEdgeWalls, rotateRoom, deleteEntity, addOpening, mergeRooms, splitRoom, objectToWallDistance, deleteCorner, mergeWallsAt,
-  updateFloorProps, wallLength, dist,
+  updateFloorProps, wallLength, dist, updateCeilingDrop, ceilingAbove,
 } from '../../../../packages/geometry/src/index';
 import { editFloor, editProject, getState, select, setTool, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
@@ -17,7 +17,7 @@ export function Inspector() {
   const unit = project.settings.unit, prec = project.settings.precision;
   const L = (m: number) => formatLength(m, unit, prec);
   const A = (m: number) => formatArea(m, unit, prec);
-  const sel = selection.filter((id) => floor.rooms[id] || floor.walls[id] || floor.openings[id] || floor.furniture[id] || floor.vertices[id] || floor.dimensions[id] || floor.annotations[id]);
+  const sel = selection.filter((id) => floor.rooms[id] || floor.walls[id] || floor.openings[id] || floor.furniture[id] || floor.vertices[id] || floor.dimensions[id] || floor.annotations[id] || floor.ceilingDrops?.[id]);
 
   if (sel.length === 2 && floor.rooms[sel[0]] && floor.rooms[sel[1]])
     return (
@@ -47,6 +47,8 @@ export function Inspector() {
           <Stat label={t('wallArea')} value={A(m.wallArea)} />
           <Stat label={t('ceilingArea')} value={A(m.ceilingArea)} />
           <Stat label={`${t('doors')} / ${t('windows')}`} value={`${m.doors} / ${m.windows}`} />
+          {m.loweredArea > 0 && <Stat label={t('loweredArea')} value={A(m.loweredArea)} testId="room-lowered" />}
+          {m.soffitSideArea > 0 && <Stat label={t('soffitFaces')} value={A(m.soffitSideArea)} />}
         </div>
         <h4>{t('walls')}</h4>
         {walls.map((w, i) => w && (
@@ -148,6 +150,28 @@ export function Inspector() {
           <button className="btn" onClick={() => editFloor('Merge walls', (f) => mergeWallsAt(f, id)) && select([])}>{t('mergeWalls')}</button>
           <button className="btn danger" onClick={() => editFloor('Delete corner', (f) => deleteCorner(f, id)) && select([])}>{t('deleteCorner')}</button>
         </div>
+      </Panel>
+    );
+  }
+
+  if (floor.ceilingDrops?.[id]) {
+    const c = floor.ceilingDrops[id];
+    const top = ceilingAbove(floor, c);
+    const set = (patch: Partial<typeof c>) => editFloor('Edit lowered ceiling', (f) => updateCeilingDrop(f, id, patch));
+    return (
+      <Panel title={t('ceiling')} testId="inspector-ceiling">
+        <TextField label={t('name')} value={c.name} onCommit={(name) => set({ name })} />
+        <LengthField label={t('ceilingHeightAt')} value={c.height} unit={unit} testId="ceiling-height" onCommit={(v) => v && set({ height: v })} />
+        <div className="hint-text">{t('dropBy')} {L(top - c.height)} ({t('height')}: {L(top)})</div>
+        <div className="grid2">
+          <LengthField label={t('width')} value={c.width} unit={unit} testId="ceiling-width" onCommit={(v) => v && set({ width: v })} />
+          <LengthField label={t('depth')} value={c.depth} unit={unit} testId="ceiling-depth" onCommit={(v) => v && set({ depth: v })} />
+          <LengthField label={t('x')} value={c.x} unit={unit} min={-1e6} onCommit={(v) => v != null && set({ x: v })} />
+          <LengthField label={t('y')} value={c.y} unit={unit} min={-1e6} onCommit={(v) => v != null && set({ y: v })} />
+        </div>
+        <NumberField label={t('rotation')} value={c.rotation} suffix="°" step={15} onCommit={(r) => set({ rotation: ((r % 360) + 360) % 360 })} />
+        <Stat label={t('area')} value={A(c.width * c.depth)} />
+        <button className="btn danger" onClick={() => { editFloor('Delete lowered ceiling', (f) => deleteEntity(f, id)); select([]); }}>{t('delete')}</button>
       </Panel>
     );
   }

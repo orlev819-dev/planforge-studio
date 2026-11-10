@@ -8,7 +8,7 @@ import {
   scale, sub, wallEnds, edgeKey,
 } from '../../geometry/src/index';
 
-export type Layer = 'rooms' | 'walls' | 'doors' | 'windows' | 'furniture' | 'dimensions' | 'text' | 'annotations';
+export type Layer = 'rooms' | 'walls' | 'doors' | 'windows' | 'furniture' | 'ceilings' | 'dimensions' | 'text' | 'annotations';
 
 export type Prim =
   | { t: 'poly'; layer: Layer; pts: Vec2[]; closed: boolean; fill?: string; stroke?: string; width?: number; dash?: boolean; id?: string }
@@ -18,13 +18,13 @@ export type Prim =
 
 export interface DrawingOptions {
   unit: LengthUnit; precision: number;
-  furniture?: boolean; dimensions?: boolean; annotations?: boolean; labels?: boolean;
+  furniture?: boolean; dimensions?: boolean; annotations?: boolean; labels?: boolean; ceilings?: boolean;
   colors?: Partial<typeof DEFAULT_COLORS>;
 }
 
 export const DEFAULT_COLORS = {
   wall: '#2b2d31', roomFill: '#f4efe6', roomStroke: '#b9b0a2', door: '#3a6ea5', window: '#2a9d8f', furniture: '#6c757d',
-  furnitureFill: '#ffffff', dim: '#c0392b', text: '#1f2328', annotation: '#7048e8',
+  furnitureFill: '#ffffff', dim: '#c0392b', text: '#1f2328', annotation: '#7048e8', ceiling: '#9c36b5',
 };
 
 export function arcPoints(c: Vec2, r: number, a0: number, a1: number, segs = 24): Vec2[] {
@@ -128,6 +128,21 @@ export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
       if (shape === 'bath' || shape === 'basin' || shape === 'toilet') out.push({ t: 'poly', layer: 'furniture', pts: arcPoints(P(0, shape === 'toilet' ? 0.08 : 0), Math.min(hw, hd) * 0.7, 0, Math.PI * 2, 28), closed: true, stroke: C.furniture, width: 0.01 });
       if (shape === 'stairs') for (let y = -hd + 0.28; y < hd; y += 0.28) out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw, y), P(hw, y)], closed: false, stroke: C.furniture, width: 0.008 });
       if (shape === 'table') out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw + 0.04, -hd + 0.04), P(hw - 0.04, -hd + 0.04), P(hw - 0.04, hd - 0.04), P(-hw + 0.04, hd - 0.04)], closed: true, stroke: C.furniture, width: 0.006 });
+    }
+
+  if (opts.ceilings !== false)
+    for (const c of Object.values(f.ceilingDrops ?? {})) {
+      const k = furnitureCorners(c);
+      out.push({ t: 'poly', layer: 'ceilings', pts: k, closed: true, stroke: C.ceiling, width: 0.015, dash: true, id: c.id });
+      // light diagonal hatch, clipped to the rectangle in local coordinates
+      const r = (c.rotation * Math.PI) / 180, cs = Math.cos(r), sn = Math.sin(r);
+      const L = (x: number, y: number) => ({ x: c.x + x * cs - y * sn, y: c.y + x * sn + y * cs });
+      const hw = c.width / 2, hd = c.depth / 2, step = 0.3;
+      for (let s = -hw - hd + step; s < hw + hd; s += step) {
+        const x0 = Math.max(-hw, s - hd), x1 = Math.min(hw, s + hd);
+        if (x1 - x0 > 1e-6) out.push({ t: 'poly', layer: 'ceilings', pts: [L(x0, x0 - s), L(x1, x1 - s)], closed: false, stroke: C.ceiling, width: 0.004 });
+      }
+      out.push({ t: 'text', layer: 'ceilings', p: { x: c.x, y: c.y }, text: `${c.name} ${formatLength(c.height, opts.unit, opts.precision)}`, size: 0.13, color: C.ceiling, id: c.id });
     }
 
   if (opts.labels !== false)

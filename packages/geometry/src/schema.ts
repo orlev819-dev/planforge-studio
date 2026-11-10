@@ -28,6 +28,10 @@ export const FloorSchema = z.object({
   })),
   dimensions: z.record(z.string(), z.object({ id, a: vec, b: vec, offset: z.number().finite() })),
   annotations: z.record(z.string(), z.object({ id, x: z.number().finite(), y: z.number().finite(), text: z.string() })),
+  ceilingDrops: z.record(z.string(), z.object({
+    id, name: z.string(), x: z.number().finite(), y: z.number().finite(), width: z.number().positive(), depth: z.number().positive(),
+    rotation: z.number().finite(), height: z.number().positive(),
+  })).default({}),
   reference: z.object({
     dataUrl: z.string(), pxWidth: z.number().positive(), pxHeight: z.number().positive(), scale: z.number().positive(),
     x: z.number(), y: z.number(), rotation: z.number(), opacity: z.number().min(0).max(1), locked: z.boolean(), visible: z.boolean(), calibrated: z.boolean(),
@@ -40,6 +44,11 @@ export const ProjectSchema = z.object({
   settings: z.object({ unit: z.enum(['mm', 'cm', 'm', 'ft-in']), precision: z.number().int().min(0).max(4), showGrid: z.boolean(), snap: z.boolean() }),
   floors: z.array(FloorSchema).min(1),
 });
+
+/** Upgrade projects saved by older versions (adds fields introduced later). */
+export function migrateProject(p: Project): Project {
+  return { ...p, floors: p.floors.map((f) => (f.ceilingDrops ? f : { ...f, ceilingDrops: {} })) };
+}
 
 /** Parse + structurally validate + geometrically validate a project (e.g. JSON import). */
 export function parseProject(data: unknown): Project {

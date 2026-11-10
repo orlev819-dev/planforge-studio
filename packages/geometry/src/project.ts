@@ -6,7 +6,7 @@ import { createFloor, uid } from './model';
 export function reidFloor(f: Floor, name?: string): Floor {
   const map = new Map<ID, ID>();
   const nid = (old: ID) => { let n = map.get(old); if (!n) { n = uid(); map.set(old, n); } return n; };
-  const out: Floor = { ...structuredClone(f), id: uid(), name: name ?? f.name, vertices: {}, walls: {}, rooms: {}, openings: {}, furniture: {}, dimensions: {}, annotations: {} };
+  const out: Floor = { ...structuredClone(f), id: uid(), name: name ?? f.name, vertices: {}, walls: {}, rooms: {}, openings: {}, furniture: {}, dimensions: {}, annotations: {}, ceilingDrops: {} };
   for (const v of Object.values(f.vertices)) out.vertices[nid(v.id)] = { ...v, id: nid(v.id) };
   for (const w of Object.values(f.walls)) out.walls[nid(w.id)] = { ...w, id: nid(w.id), a: nid(w.a), b: nid(w.b) };
   for (const r of Object.values(f.rooms)) out.rooms[nid(r.id)] = { ...r, id: nid(r.id), vertexIds: r.vertexIds.map(nid) };
@@ -14,6 +14,7 @@ export function reidFloor(f: Floor, name?: string): Floor {
   for (const x of Object.values(f.furniture)) out.furniture[nid(x.id)] = { ...structuredClone(x), id: nid(x.id) };
   for (const d of Object.values(f.dimensions)) out.dimensions[nid(d.id)] = { ...structuredClone(d), id: nid(d.id) };
   for (const a of Object.values(f.annotations)) out.annotations[nid(a.id)] = { ...a, id: nid(a.id) };
+  for (const c of Object.values(f.ceilingDrops ?? {})) out.ceilingDrops[nid(c.id)] = { ...c, id: nid(c.id) };
   return out;
 }
 

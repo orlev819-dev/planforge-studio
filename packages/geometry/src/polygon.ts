@@ -174,3 +174,26 @@ export function polygonsOverlap(a: Vec2[], b: Vec2[]): boolean {
   if (mids(a).some((p) => strictlyInside(p, b)) || mids(b).some((p) => strictlyInside(p, a))) return true;
   return false;
 }
+
+/** Sutherland–Hodgman: clip any simple polygon by a CONVEX polygon. Returns the intersection outline. */
+export function clipByConvex(subject: Vec2[], clip: Vec2[]): Vec2[] {
+  const sgn = signedArea(clip) > 0 ? 1 : -1;
+  const inside = (p: Vec2, a: Vec2, b: Vec2) => sgn * cross(sub(b, a), sub(p, a)) >= -1e-12;
+  const inter = (p: Vec2, q: Vec2, a: Vec2, b: Vec2): Vec2 => {
+    const d1 = sub(q, p), d2 = sub(b, a);
+    const t = cross(sub(a, p), d2) / cross(d1, d2);
+    return { x: p.x + d1.x * t, y: p.y + d1.y * t };
+  };
+  let out = subject;
+  for (let i = 0; i < clip.length && out.length; i++) {
+    const a = clip[i], b = clip[(i + 1) % clip.length];
+    const inp = out; out = [];
+    for (let j = 0; j < inp.length; j++) {
+      const p = inp[j], q = inp[(j + 1) % inp.length];
+      const pin = inside(p, a, b), qin = inside(q, a, b);
+      if (pin) { out.push(p); if (!qin) out.push(inter(p, q, a, b)); }
+      else if (qin) out.push(inter(p, q, a, b));
+    }
+  }
+  return out;
+}

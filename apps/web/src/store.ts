@@ -6,14 +6,14 @@
 import { useSyncExternalStore } from 'react';
 import type { Floor, ID, Project } from '../../../packages/shared-types/src/index';
 import { GeometryError } from '../../../packages/shared-types/src/index';
-import { createProject, addFloor, replaceFloor } from '../../../packages/geometry/src/index';
+import { createProject, addFloor, replaceFloor, migrateProject } from '../../../packages/geometry/src/index';
 import { dbApi } from './db';
 import type { Lang } from './i18n';
 
-export type Tool = 'select' | 'pan' | 'room' | 'wall' | 'corner' | 'door' | 'window' | 'opening' | 'dimension' | 'furniture' | 'annotation' | 'eraser' | 'calibrate';
+export type Tool = 'select' | 'pan' | 'room' | 'wall' | 'corner' | 'door' | 'window' | 'opening' | 'dimension' | 'furniture' | 'annotation' | 'eraser' | 'calibrate' | 'ceiling';
 export type View = '2d' | '3d' | 'split';
 export type Route = { page: 'dashboard' } | { page: 'editor'; projectId: ID } | { page: 'library' } | { page: 'reports' } | { page: 'settings' };
-export type LayerKey = 'rooms' | 'walls' | 'openings' | 'furniture' | 'dimensions' | 'text' | 'annotations' | 'reference';
+export type LayerKey = 'rooms' | 'walls' | 'openings' | 'furniture' | 'ceilings' | 'dimensions' | 'text' | 'annotations' | 'reference';
 
 interface HistoryEntry { label: string; project: Project; floorId: ID | null }
 
@@ -45,7 +45,7 @@ let state: State = {
   route: { page: 'dashboard' }, projects: [], loaded: false, project: null, floorId: null, selection: [], tool: 'select', view: '2d',
   pendingCatalogId: null, past: [], future: [], save: 'idle', toast: null,
   lang: prefs.lang === 'he' ? 'he' : 'en', theme: prefs.theme === 'dark' ? 'dark' : 'light',
-  layers: { rooms: true, walls: true, openings: true, furniture: true, dimensions: true, text: true, annotations: true, reference: true },
+  layers: { rooms: true, walls: true, openings: true, furniture: true, ceilings: true, dimensions: true, text: true, annotations: true, reference: true },
   openingDefaults: { door: 0.8, window: 1.2, opening: 0.9 }, cursor: null, zoom: 60,
 };
 
@@ -97,7 +97,7 @@ if (typeof window !== 'undefined') {
 }
 
 export async function loadProjects() {
-  const projects = await dbApi.listProjects();
+  const projects = (await dbApi.listProjects()).map(migrateProject);
   setState({ projects, loaded: true });
 }
 

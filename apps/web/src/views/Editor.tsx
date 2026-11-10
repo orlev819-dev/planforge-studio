@@ -19,7 +19,7 @@ const TOOLS: { id: Tool; key: TKey; icon: string; kbd?: string }[] = [
   { id: 'select', key: 'select', icon: '⬉', kbd: 'V' }, { id: 'pan', key: 'pan', icon: '✋', kbd: 'H' }, { id: 'room', key: 'room', icon: '▭', kbd: 'R' },
   { id: 'wall', key: 'wall', icon: '▬', kbd: 'W' }, { id: 'corner', key: 'corner', icon: '⌜' }, { id: 'door', key: 'door', icon: '◜', kbd: 'D' },
   { id: 'window', key: 'window', icon: '▤', kbd: 'N' }, { id: 'opening', key: 'opening', icon: '⊓' }, { id: 'dimension', key: 'dimension', icon: '↔', kbd: 'M' },
-  { id: 'furniture', key: 'furniture', icon: '🛋' }, { id: 'annotation', key: 'annotation', icon: '✎' }, { id: 'eraser', key: 'eraser', icon: '⌫', kbd: 'E' },
+  { id: 'ceiling', key: 'ceiling', icon: '⬓', kbd: 'C' }, { id: 'furniture', key: 'furniture', icon: '🛋' }, { id: 'annotation', key: 'annotation', icon: '✎' }, { id: 'eraser', key: 'eraser', icon: '⌫', kbd: 'E' },
 ];
 
 export function Editor() {
@@ -147,7 +147,7 @@ function StatusBar() {
 function LayersDialog({ onClose }: { onClose: () => void }) {
   const { t } = useT();
   const layers = useStore((s) => s.layers);
-  const names: Record<LayerKey, TKey> = { rooms: 'roomsList', walls: 'walls', openings: 'opening', furniture: 'furniture', dimensions: 'dimension', text: 'text', annotations: 'annotation', reference: 'reference' };
+  const names: Record<LayerKey, TKey> = { rooms: 'roomsList', walls: 'walls', openings: 'opening', furniture: 'furniture', ceilings: 'ceiling', dimensions: 'dimension', text: 'text', annotations: 'annotation', reference: 'reference' };
   return (
     <Modal title={t('layers')} onClose={onClose}>
       {(Object.keys(layers) as LayerKey[]).map((k) => (

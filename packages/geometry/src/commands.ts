@@ -3,11 +3,11 @@
  * (structural copy) or throws GeometryError — it never returns corrupted geometry.
  * Undo/redo is implemented in the app by keeping before/after snapshots of each command.
  */
-import type { Floor, Furniture, ID, Opening, Room, Vec2, Wall } from '../../shared-types/src/index';
+import type { CeilingDrop, Floor, Furniture, ID, Opening, Room, Vec2, Wall } from '../../shared-types/src/index';
 import { GeometryError } from '../../shared-types/src/index';
 import { add, cleanPt, dist, dot, norm, perp, projectOnSegment, rotate, samePoint, scale, sub, MERGE_TOL, clean, segmentsProperlyIntersect } from './vec';
 import { centroid, pointInPolygon, polygonsOverlap, signedArea, validatePolygon, bbox, interiorPoint } from './polygon';
-import { edgeKey, openingGeometry, pt, roomPoints, uid, wallEnds, wallLength } from './model';
+import { edgeKey, furnitureCorners, openingGeometry, pt, roomPoints, uid, wallEnds, wallLength } from './model';
 
 const fail = (code: string, msg: string): never => { throw new GeometryError(code, msg); };
 const copy = <T>(x: T): T => structuredClone(x);
@@ -583,7 +583,45 @@ export function addAnnotation(prev: Floor, p: Vec2, text: string): { floor: Floo
   return { floor: f, id };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Lowered ceilings (soffits)
+// ---------------------------------------------------------------------------------------------
+
+export function ceilingDropCorners(c: { x: number; y: number; width: number; depth: number; rotation: number }) { return furnitureCorners(c); }
+
+/** Ceiling height of the room under the zone centre (or floor default). */
+export function ceilingAbove(f: Floor, p: Vec2): number {
+  for (const r of Object.values(f.rooms)) if (pointInPolygon(p, roomPoints(f, r))) return r.height;
+  return f.defaultHeight;
+}
+
+function checkDrop(f: Floor, c: CeilingDrop) {
+  if (!(c.width >= 0.05 && c.depth >= 0.05)) fail('size', 'Lowered ceiling must be at least 5 × 5 cm.');
+  const top = ceilingAbove(f, c);
+  if (!(c.height > 0.5 && c.height < top - 1e-6)) fail('ceiling-height', `Lowered ceiling height must be between 0.50 m and the room ceiling (${top.toFixed(2)} m).`);
+}
+
+export function addCeilingDrop(prev: Floor, o: Omit<CeilingDrop, 'id' | 'name' | 'rotation'> & { name?: string; rotation?: number }): { floor: Floor; id: ID } {
+  const f = copy(prev);
+  const id = uid();
+  const c: CeilingDrop = { id, name: o.name ?? 'Lowered ceiling', rotation: o.rotation ?? 0, x: clean(o.x), y: clean(o.y), width: clean(o.width), depth: clean(o.depth), height: o.height };
+  checkDrop(f, c);
+  f.ceilingDrops = { ...(f.ceilingDrops ?? {}), [id]: c };
+  return { floor: f, id };
+}
+
+export function updateCeilingDrop(prev: Floor, id: ID, patch: Partial<Omit<CeilingDrop, 'id'>>): Floor {
+  const cur = prev.ceilingDrops?.[id];
+  if (!cur) fail('missing', 'Lowered ceiling not found');
+  const f = copy(prev);
+  const c = { ...cur!, ...patch };
+  checkDrop(f, c);
+  f.ceilingDrops = { ...f.ceilingDrops, [id]: c };
+  return f;
+}
+
 export function deleteEntity(prev: Floor, id: ID): Floor {
+  if (prev.ceilingDrops?.[id]) { const f = copy(prev); delete f.ceilingDrops[id]; return f; }
   if (prev.rooms[id]) return deleteRoom(prev, id);
   if (prev.openings[id]) return deleteOpening(prev, id);
   if (prev.furniture[id]) return deleteFurniture(prev, id);
