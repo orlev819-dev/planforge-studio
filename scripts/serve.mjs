@@ -1,5 +1,6 @@
 // Minimal static server for the built PWA (no external dependencies).
 import { createServer } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,4 +16,7 @@ createServer(async (req, res) => {
     const body = await readFile(f);
     res.writeHead(200, { 'content-type': types[extname(f)] || 'application/octet-stream', 'cache-control': 'no-cache' }).end(body);
   } catch { res.writeHead(404).end('not found'); }
-}).listen(port, () => console.log(`PlanForge Studio on http://localhost:${port}`));
+}).listen(port, '0.0.0.0', () => {
+  console.log(`PlanForge Studio on http://localhost:${port}`);
+  for (const list of Object.values(networkInterfaces())) for (const a of list ?? []) if (a.family === 'IPv4' && !a.internal) console.log(`  LAN: http://${a.address}:${port}`);
+});

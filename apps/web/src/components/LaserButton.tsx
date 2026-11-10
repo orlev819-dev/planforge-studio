@@ -19,7 +19,7 @@ export function LaserButton() {
           <div className="muted sm">Bosch GLM 50-27 C / CG</div>
           <p data-testid="laser-status"><b>{t(`laser_${l.status}` as 'laser_idle')}</b>{l.device ? ` · ${l.device}` : ''}{l.detail && l.status !== 'connected' ? ` · ${l.detail}` : ''}</p>
           {l.status === 'unsupported'
-            ? <p className="hint-text">{t('laserUnsupported')}</p>
+            ? <p className="hint-text">{typeof window !== 'undefined' && !window.isSecureContext ? t('laserInsecure') : t('laserUnsupported')}</p>
             : l.status === 'connected' || l.status === 'reconnecting'
               ? <button className="btn" onClick={disconnectLaser}>{t('disconnect')}</button>
               : <button className="btn primary" data-testid="laser-connect" disabled={l.status === 'connecting'} onClick={() => void connectLaser()}>{t('connect')}</button>}
