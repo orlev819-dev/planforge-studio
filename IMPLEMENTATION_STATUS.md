@@ -12,7 +12,7 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | 5 3D engine | ✅ | Own WebGL renderer: extrusion, holes, cameras, walk, picking. Shadows ❌ |
 | 6 Import/export | 🟡 | PDF/SVG/DXF/PNG/JPEG/GLB/OBJ/CSV/JSON export ✅. Reference import + calibration ✅. DXF import, USDZ, IFC and XLSX ❌ (shown as unsupported in the UI) |
 | 7 Advanced modules | 🟡 | Object library ✅, reports (room schedule table/CSV/PDF page) ✅. Cost estimation, photos/attachments, collaboration ❌ |
-| 8 Device integration | ❌ | Interfaces and capability detection only (`packages/scanning`). No native code, no drivers. |
+| 8 Device integration | 🟡 | **Bosch GLM 50-27 C/CG over Web Bluetooth** (community-documented protocol; unit + simulated E2E tests; not yet verified on real hardware). Scanning: interfaces only, no native code. |
 | 9 Hardening | 🟡 | Offline PWA ✅, i18n he/en ✅, E2E ✅, production build ✅. Server security and sync ❌. Large-plan performance not benchmarked. |
 
 ## Feature completion matrix
@@ -45,7 +45,9 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | Accounts / teams / comments / audit | — | ❌ |
 | Photos / notes / checklists / issues | text notes on the plan only | 🟡 |
 | Cost estimation | — | ❌ |
-| Scanning (RoomPlan/ARKit/ARCore), Bluetooth lasers | interfaces only, nothing simulated | ❌ |
+| Bluetooth laser | Bosch GLM 50-27 C/CG: connect, status, auto-reconnect (3 tries), reading → focused length field / drawing wall-room toward cursor / selected wall length | 🟡 (awaiting hardware test) |
+| Bluetooth laser | other brands (Leica DISTO, Hilti, Stabila…) | ❌ |
+| Scanning (RoomPlan/ARKit/ARCore) | interfaces only, nothing simulated | ❌ |
 
 ## Known limitations
 - Room dimensions are measured on **wall centerlines**. Net (interior) area is shown separately. magicplan-style interior-first entry is not offered yet.
@@ -63,7 +65,8 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | Chromium 153 (desktop) | Tested (headless, SwiftShader WebGL) |
 | Firefox / Safari desktop | Expected to work (standard APIs only); **not tested** |
 | iPad / Android tablets | Touch, pinch and responsive layout implemented; **not tested on devices** |
-| LiDAR / RoomPlan / ARCore / BLE lasers | **Not supported** in this build |
+| Bosch GLM 50-27 C/CG | Chrome/Edge (Web Bluetooth); Firefox/Safari have no Web Bluetooth |
+| LiDAR / RoomPlan / ARCore / other lasers | **Not supported** in this build |
 
 ## Next steps (in priority order)
 1. `apps/api`: Fastify + PostgreSQL/Prisma, auth, workspaces, RBAC enforced on the server, revision-based sync and conflict handling.

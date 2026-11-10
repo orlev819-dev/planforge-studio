@@ -16,6 +16,7 @@ import { catalogById } from '../../../../packages/shared-types/src/catalog';
 import { editFloor, getState, redo, select, setState, setTool, toast, undo, useStore, type LayerKey } from '../store';
 import { useT } from '../i18n';
 import { paintPrims, toScreen, toWorld, type ViewXf } from './paint';
+import { setCanvasLaserHandler } from '../laser';
 
 type Hit =
   | { type: 'vertex'; id: ID }
@@ -336,6 +337,21 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); };
+  });
+
+  // laser readings while drawing: next corner at the measured distance toward the cursor
+  useEffect(() => {
+    setCanvasLaserHandler((L) => {
+      const anchor = wallStart ?? (poly.length ? poly[poly.length - 1] : null);
+      if (!anchor || !hover) return false;
+      const d = norm(sub(hover.snap.p, anchor));
+      if (!d.x && !d.y) return false;
+      const p = { x: +(anchor.x + d.x * L).toFixed(6), y: +(anchor.y + d.y * L).toFixed(6) };
+      if (wallStart) { if (editFloor('Draw wall (laser)', (f) => addPartitionWall(f, wallStart, p).floor)) setWallStart(p); }
+      else setPoly((ps) => [...ps, p]);
+      return true;
+    });
+    return () => setCanvasLaserHandler(null);
   });
 
   // ------------------------------------------------------------------ pointer events

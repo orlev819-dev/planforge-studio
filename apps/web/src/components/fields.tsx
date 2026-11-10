@@ -22,7 +22,7 @@ export function LengthField({ label, value, unit, onCommit, testId, min = 0, all
     <label className="field">
       <span>{label}</span>
       <span className="field-input">
-        <input data-testid={testId} value={text} placeholder={placeholder} inputMode="decimal" onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setText(fmt(value)); (e.target as HTMLInputElement).blur(); } }} />
+        <input data-testid={testId} data-laser-commit="1" value={text} placeholder={placeholder} inputMode="decimal" onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setText(fmt(value)); (e.target as HTMLInputElement).blur(); } }} />
         <em>{unitLabel(unit)}</em>
       </span>
     </label>

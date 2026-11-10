@@ -1,7 +1,7 @@
 /**
  * Device capture interfaces (scanning + Bluetooth lasers).
- * STATUS: interfaces + honest capability detection only. No native module is implemented in this build,
- * and nothing here ever fabricates sensor or laser measurements.
+ * STATUS: scanning = interfaces + capability detection only (no native module). Lasers: Bosch GLM-C via Web Bluetooth.
+ * Nothing here fabricates sensor or laser measurements; simulated packets exist only in tests.
  */
 import type { Vec2 } from '../../shared-types/src/index';
 
@@ -57,6 +57,10 @@ export interface LaserDriver {
   onDisconnect(cb: () => void): void;
   disconnect(): Promise<void>;
 }
-/** Registered drivers. Empty on purpose: no device protocol has been implemented and verified yet. */
-export const LASER_DRIVERS: LaserDriver[] = [];
+/**
+ * Supported laser measures. Bosch GLM 50-27 C/CG is implemented in ./bosch-glm.ts against a community-documented
+ * (not official) protocol; it has unit tests with synthetic packets but has not been verified on hardware by us.
+ */
+export const SUPPORTED_LASERS = [{ id: 'bosch-glm-c', models: ['Bosch GLM 50-27 C', 'Bosch GLM 50-27 CG'], protocol: 'community reverse-engineered', hardwareVerified: false }];
+export * from './bosch-glm';
 export const webBluetoothAvailable = () => typeof navigator !== 'undefined' && 'bluetooth' in navigator;

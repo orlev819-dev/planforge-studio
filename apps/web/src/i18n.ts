@@ -22,6 +22,12 @@ const en = {
   shareInfo: 'Cloud sharing requires the server (not part of this build). Use Export → Project JSON to share a file.',
   hintRoom: 'Drag a rectangle, or click to place corners (double-click / Enter to close).', hintWall: 'Click start and end points. Esc to finish.', hintOpening: 'Click on a wall to place.', hintFurniture: 'Pick an object, then click on the plan.', hintDimension: 'Click two points.', hintCorner: 'Click on a wall to insert a corner.',
   placeObject: 'Click on the plan to place', categories: 'Categories', all: 'All',
+  laser: 'Laser measure (Bluetooth)', connect: 'Connect', disconnect: 'Disconnect', lastReading: 'Last reading',
+  laser_unsupported: 'Bluetooth not available', laser_idle: 'Not connected', laser_connecting: 'Connecting…', laser_connected: 'Connected', laser_reconnecting: 'Reconnecting…', laser_error: 'Error',
+  laserTarget_field: 'entered in field', laserTarget_drawing: 'placed drawing point', laserTarget_wall: 'set selected wall length', laserTarget_none: 'not applied',
+  laserUnsupported: 'Use Chrome or Edge on Windows/Android/macOS with Bluetooth turned on.',
+  laserHow: 'Turn on Bluetooth on the GLM, click Connect and pick it. Each measurement goes into the focused length field, the wall/room you are drawing (toward the cursor), or the selected wall.',
+  laserNote: 'Protocol is community-documented (not an official Bosch SDK). Close the MeasureOn app first — the device accepts one connection.',
 };
 type Dict = typeof en;
 const he: Dict = {
@@ -44,6 +50,12 @@ const he: Dict = {
   shareInfo: 'שיתוף בענן דורש שרת (לא כלול בגרסה זו). השתמשו בייצוא ← JSON כדי לשתף קובץ.',
   hintRoom: 'גררו מלבן, או לחצו כדי למקם פינות (לחיצה כפולה / Enter לסגירה).', hintWall: 'לחצו על נקודת התחלה וסיום. Esc לסיום.', hintOpening: 'לחצו על קיר כדי למקם.', hintFurniture: 'בחרו אובייקט ולחצו על התוכנית.', hintDimension: 'לחצו על שתי נקודות.', hintCorner: 'לחצו על קיר כדי להוסיף פינה.',
   placeObject: 'לחצו על התוכנית כדי למקם', categories: 'קטגוריות', all: 'הכל',
+  laser: 'מד לייזר (בלוטות\')', connect: 'התחבר', disconnect: 'התנתק', lastReading: 'מדידה אחרונה',
+  laser_unsupported: 'בלוטות\' לא זמין', laser_idle: 'לא מחובר', laser_connecting: 'מתחבר…', laser_connected: 'מחובר', laser_reconnecting: 'מתחבר מחדש…', laser_error: 'שגיאה',
+  laserTarget_field: 'הוזן לשדה', laserTarget_drawing: 'מוקמה נקודת שרטוט', laserTarget_wall: 'נקבע אורך הקיר הנבחר', laserTarget_none: 'לא הוחל',
+  laserUnsupported: 'השתמשו ב-Chrome או Edge עם בלוטות\' פעיל.',
+  laserHow: 'הפעילו בלוטות\' במד, לחצו "התחבר" ובחרו אותו. כל מדידה נכנסת לשדה האורך הפעיל, לקיר/חדר שאתם משרטטים (לכיוון הסמן), או לקיר הנבחר.',
+  laserNote: 'הפרוטוקול מתועד ע"י הקהילה (לא SDK רשמי של בוש). סגרו קודם את אפליקציית MeasureOn – המכשיר מקבל חיבור אחד בלבד.',
 };
 
 export const dicts: Record<Lang, Dict> = { en, he };

@@ -9,6 +9,7 @@ import { LibraryPanel } from '../components/LibraryPanel';
 import { ExportDialog } from '../components/ExportDialog';
 import { RoomDialog } from '../components/RoomDialog';
 import { ImportDialog } from '../components/ImportDialog';
+import { LaserButton } from '../components/LaserButton';
 import { Modal, download, safeName } from '../components/fields';
 import { editProject, go, redo, setState, setTool, undo, useStore, currentFloor, toast, saveNow, getState, persistProject, type Tool, type LayerKey } from '../store';
 import { dbApi, type Snapshot } from '../db';
@@ -61,6 +62,7 @@ export function Editor() {
           <button onClick={() => window.dispatchEvent(new CustomEvent('planforge:zoom', { detail: 1.25 }))} aria-label="zoom in">+</button>
         </div>
         <div className="grow" />
+        <LaserButton />
         <button className="btn sm" onClick={() => setDialog('versions')}>{t('versions')}</button>
         <button className="btn sm" onClick={() => setDialog('share')}>{t('share')}</button>
         <button className="btn sm primary" data-testid="export-open" onClick={() => setDialog('export')}>{t('export')}</button>
