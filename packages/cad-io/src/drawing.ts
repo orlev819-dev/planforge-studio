@@ -1,0 +1,197 @@
+/**
+ * Renderer-independent 2D drawing list. The editor canvas, SVG, DXF and PDF exporters all render
+ * these primitives, so every output shows identical geometry.
+ */
+import type { Floor, LengthUnit, Vec2, Wall } from '../../shared-types/src/index';
+import {
+  add, dist, furnitureCorners, formatArea, formatLength, norm, openingGeometry, perp, pointInPolygon, pt, roomMetrics, roomPoints,
+  scale, sub, wallEnds, edgeKey,
+} from '../../geometry/src/index';
+
+export type Layer = 'rooms' | 'walls' | 'doors' | 'windows' | 'furniture' | 'dimensions' | 'text' | 'annotations';
+
+export type Prim =
+  | { t: 'poly'; layer: Layer; pts: Vec2[]; closed: boolean; fill?: string; stroke?: string; width?: number; dash?: boolean; id?: string }
+  | { t: 'arc'; layer: Layer; c: Vec2; r: number; a0: number; a1: number; stroke: string; width?: number; id?: string }
+  | { t: 'text'; layer: Layer; p: Vec2; text: string; size: number; angle?: number; color: string; bold?: boolean; id?: string }
+  | { t: 'dim'; layer: Layer; a: Vec2; b: Vec2; off: Vec2; text: string; size: number; color: string; id?: string };
+
+export interface DrawingOptions {
+  unit: LengthUnit; precision: number;
+  furniture?: boolean; dimensions?: boolean; annotations?: boolean; labels?: boolean;
+  colors?: Partial<typeof DEFAULT_COLORS>;
+}
+
+export const DEFAULT_COLORS = {
+  wall: '#2b2d31', roomFill: '#f4efe6', roomStroke: '#b9b0a2', door: '#3a6ea5', window: '#2a9d8f', furniture: '#6c757d',
+  furnitureFill: '#ffffff', dim: '#c0392b', text: '#1f2328', annotation: '#7048e8',
+};
+
+export function arcPoints(c: Vec2, r: number, a0: number, a1: number, segs = 24): Vec2[] {
+  const out: Vec2[] = [];
+  for (let i = 0; i <= segs; i++) { const a = a0 + ((a1 - a0) * i) / segs; out.push({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r }); }
+  return out;
+}
+
+function wallDegree(f: Floor) {
+  const deg = new Map<string, number>();
+  for (const w of Object.values(f.walls)) { deg.set(w.a, (deg.get(w.a) ?? 0) + 1); deg.set(w.b, (deg.get(w.b) ?? 0) + 1); }
+  return deg;
+}
+
+/** Wall body as filled quads, with gaps at openings. */
+export function wallQuads(f: Floor, w: Wall, deg = wallDegree(f)): Vec2[][] {
+  const { a, b } = wallEnds(f, w);
+  const L = dist(a, b);
+  const d = norm(sub(b, a)), n = perp(d), h = w.thickness / 2;
+  const s0 = (deg.get(w.a) ?? 0) > 1 ? -h : 0;
+  const s1 = (deg.get(w.b) ?? 0) > 1 ? L + h : L;
+  const gaps = Object.values(f.openings).filter((o) => o.wallId === w.id).map((o) => [o.t - o.width / 2, o.t + o.width / 2]).sort((x, y) => x[0] - y[0]);
+  const spans: [number, number][] = [];
+  let cur = s0;
+  for (const [g0, g1] of gaps) { if (g0 > cur + 1e-6) spans.push([cur, g0]); cur = Math.max(cur, g1); }
+  if (s1 > cur + 1e-6) spans.push([cur, s1]);
+  return spans.map(([u0, u1]) => {
+    const p0 = add(a, scale(d, u0)), p1 = add(a, scale(d, u1));
+    return [add(p0, scale(n, h)), add(p1, scale(n, h)), add(p1, scale(n, -h)), add(p0, scale(n, -h))];
+  });
+}
+
+export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
+  const C = { ...DEFAULT_COLORS, ...(opts.colors ?? {}) };
+  const out: Prim[] = [];
+  const fmtL = (m: number) => formatLength(m, opts.unit, opts.precision);
+  const deg = wallDegree(f);
+
+  for (const r of Object.values(f.rooms))
+    out.push({ t: 'poly', layer: 'rooms', pts: roomPoints(f, r), closed: true, fill: C.roomFill, stroke: C.roomStroke, width: 0.01, id: r.id });
+
+  if (f.reference && f.reference.visible) { /* reference image is drawn by raster-capable renderers only */ }
+
+  for (const w of Object.values(f.walls))
+    for (const q of wallQuads(f, w, deg)) out.push({ t: 'poly', layer: 'walls', pts: q, closed: true, fill: C.wall, stroke: C.wall, width: 0.005, id: w.id });
+
+  for (const o of Object.values(f.openings)) {
+    const g = openingGeometry(f, o);
+    const th = g.wall.thickness / 2;
+    const jamb = (p: Vec2) => [add(p, scale(g.normal, th)), add(p, scale(g.normal, -th))];
+    if (o.kind === 'window') {
+      const [s1, s2] = jamb(g.start), [e1, e2] = jamb(g.end);
+      out.push({ t: 'poly', layer: 'windows', pts: [s1, e1, e2, s2], closed: true, fill: '#ffffff', stroke: C.window, width: 0.02, id: o.id });
+      out.push({ t: 'poly', layer: 'windows', pts: [g.start, g.end], closed: false, stroke: C.window, width: 0.02, id: o.id });
+      if (o.subtype === 'sliding' || o.subtype === 'double') {
+        const off = scale(g.normal, th * 0.4);
+        out.push({ t: 'poly', layer: 'windows', pts: [add(g.start, off), add(g.center, add(off, scale(g.dir, 0.05)))], closed: false, stroke: C.window, width: 0.015 });
+        out.push({ t: 'poly', layer: 'windows', pts: [sub(g.center, add(off, scale(g.dir, 0.05))), sub(g.end, off)], closed: false, stroke: C.window, width: 0.015 });
+      }
+      continue;
+    }
+    // jambs for doors / openings
+    out.push({ t: 'poly', layer: 'doors', pts: jamb(g.start), closed: false, stroke: C.door, width: 0.02, id: o.id });
+    out.push({ t: 'poly', layer: 'doors', pts: jamb(g.end), closed: false, stroke: C.door, width: 0.02, id: o.id });
+    if (o.kind === 'opening') continue;
+    const sn = scale(g.normal, o.side);
+    const swingLeaf = (hinge: Vec2, other: Vec2, w: number) => {
+      const tip = add(hinge, scale(sn, w));
+      out.push({ t: 'poly', layer: 'doors', pts: [hinge, tip], closed: false, stroke: C.door, width: 0.03, id: o.id });
+      const a0 = Math.atan2(other.y - hinge.y, other.x - hinge.x), a1 = Math.atan2(tip.y - hinge.y, tip.x - hinge.x);
+      let da = a1 - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+      out.push({ t: 'arc', layer: 'doors', c: hinge, r: w, a0, a1: a0 + da, stroke: C.door, width: 0.01, id: o.id });
+    };
+    const st = o.subtype;
+    if (st === 'double') { swingLeaf(g.start, g.center, o.width / 2); swingLeaf(g.end, g.center, o.width / 2); }
+    else if (st === 'sliding' || st === 'pocket' || st === 'double-sliding') {
+      const off = scale(g.normal, th + 0.03);
+      const k = st === 'pocket' ? 1 : 0.55;
+      out.push({ t: 'poly', layer: 'doors', pts: [add(g.start, off), add(add(g.start, scale(g.dir, o.width * k)), off)], closed: false, stroke: C.door, width: 0.03, id: o.id });
+      if (st === 'double-sliding') out.push({ t: 'poly', layer: 'doors', pts: [sub(g.end, off), sub(add(g.end, scale(g.dir, -o.width * k)), off)], closed: false, stroke: C.door, width: 0.03, id: o.id });
+    } else if (st === 'folding') {
+      const m1 = add(g.start, add(scale(g.dir, o.width / 4), scale(sn, o.width / 4)));
+      const m2 = add(g.end, add(scale(g.dir, -o.width / 4), scale(sn, o.width / 4)));
+      out.push({ t: 'poly', layer: 'doors', pts: [g.start, m1, g.center, m2, g.end], closed: false, stroke: C.door, width: 0.02, id: o.id });
+    } else {
+      const hinge = o.hinge === 'start' ? g.start : g.end, other = o.hinge === 'start' ? g.end : g.start;
+      swingLeaf(hinge, other, o.width);
+    }
+  }
+
+  if (opts.furniture !== false)
+    for (const fu of Object.values(f.furniture)) {
+      const c = furnitureCorners(fu);
+      out.push({ t: 'poly', layer: 'furniture', pts: c, closed: true, fill: C.furnitureFill, stroke: C.furniture, width: 0.012, id: fu.id });
+      const shape = fu.meta.shape;
+      const r = (fu.rotation * Math.PI) / 180, ux = { x: Math.cos(r), y: Math.sin(r) }, uy = { x: -Math.sin(r), y: Math.cos(r) };
+      const P = (lx: number, ly: number) => ({ x: fu.x + ux.x * lx * (fu.mirrored ? -1 : 1) + uy.x * ly, y: fu.y + ux.y * lx * (fu.mirrored ? -1 : 1) + uy.y * ly });
+      const hw = fu.width / 2, hd = fu.depth / 2;
+      if (shape === 'bed') out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw, -hd + 0.35), P(hw, -hd + 0.35)], closed: false, stroke: C.furniture, width: 0.01 });
+      if (shape === 'sofa') out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw + 0.15, hd), P(-hw + 0.15, -hd + 0.2), P(hw - 0.15, -hd + 0.2), P(hw - 0.15, hd)], closed: false, stroke: C.furniture, width: 0.01 });
+      if (shape === 'bath' || shape === 'basin' || shape === 'toilet') out.push({ t: 'poly', layer: 'furniture', pts: arcPoints(P(0, shape === 'toilet' ? 0.08 : 0), Math.min(hw, hd) * 0.7, 0, Math.PI * 2, 28), closed: true, stroke: C.furniture, width: 0.01 });
+      if (shape === 'stairs') for (let y = -hd + 0.28; y < hd; y += 0.28) out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw, y), P(hw, y)], closed: false, stroke: C.furniture, width: 0.008 });
+      if (shape === 'table') out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw + 0.04, -hd + 0.04), P(hw - 0.04, -hd + 0.04), P(hw - 0.04, hd - 0.04), P(-hw + 0.04, hd - 0.04)], closed: true, stroke: C.furniture, width: 0.006 });
+    }
+
+  if (opts.labels !== false)
+    for (const r of Object.values(f.rooms)) {
+      const m = roomMetrics(f, r);
+      out.push({ t: 'text', layer: 'text', p: { x: m.labelPoint.x, y: m.labelPoint.y - 0.13 }, text: r.name, size: 0.2, color: C.text, bold: true, id: r.id });
+      out.push({ t: 'text', layer: 'text', p: { x: m.labelPoint.x, y: m.labelPoint.y + 0.15 }, text: formatArea(m.grossArea, opts.unit, opts.precision), size: 0.16, color: C.text, id: r.id });
+    }
+
+  if (opts.dimensions !== false) {
+    const roomsByEdge = new Map<string, Vec2[]>();
+    for (const r of Object.values(f.rooms)) { const pts = roomPoints(f, r); r.vertexIds.forEach((v, i) => roomsByEdge.set(edgeKey(v, r.vertexIds[(i + 1) % r.vertexIds.length]), pts)); }
+    for (const w of Object.values(f.walls)) {
+      const { a, b } = wallEnds(f, w);
+      const L = dist(a, b);
+      const n = perp(norm(sub(b, a)));
+      const poly = roomsByEdge.get(edgeKey(w.a, w.b));
+      const mid = scale(add(a, b), 0.5);
+      let side = 1;
+      if (poly && w.exterior) side = pointInPolygon(add(mid, scale(n, 0.02)), poly) ? -1 : 1;
+      const off = scale(n, side * (w.thickness / 2 + (w.exterior ? 0.45 : 0.25)));
+      out.push({ t: 'dim', layer: 'dimensions', a, b, off, text: fmtL(L), size: 0.13, color: C.dim, id: w.id });
+    }
+    for (const d of Object.values(f.dimensions)) {
+      const n = perp(norm(sub(d.b, d.a)));
+      out.push({ t: 'dim', layer: 'dimensions', a: d.a, b: d.b, off: scale(n, d.offset), text: fmtL(dist(d.a, d.b)), size: 0.13, color: C.dim, id: d.id });
+    }
+  }
+
+  if (opts.annotations !== false)
+    for (const a of Object.values(f.annotations)) out.push({ t: 'text', layer: 'annotations', p: { x: a.x, y: a.y }, text: a.text, size: 0.15, color: C.annotation, id: a.id });
+
+  return out;
+}
+
+/** Geometry of a dimension primitive: extension lines, dimension line, tick marks, text anchor/angle. */
+export function dimGeometry(p: Extract<Prim, { t: 'dim' }>) {
+  const a2 = add(p.a, p.off), b2 = add(p.b, p.off);
+  const ol = Math.hypot(p.off.x, p.off.y) || 1;
+  const on = scale(p.off, 1 / ol);
+  const ext = 0.08;
+  const d = norm(sub(p.b, p.a));
+  const tick = (q: Vec2) => [add(q, scale(add(d, on), -0.06)), add(q, scale(add(d, on), 0.06))];
+  let ang = (Math.atan2(d.y, d.x) * 180) / Math.PI;
+  if (ang > 90) ang -= 180; if (ang <= -90) ang += 180;
+  return {
+    ext1: [add(p.a, scale(on, Math.min(0.1, ol * 0.3))), add(a2, scale(on, ext))],
+    ext2: [add(p.b, scale(on, Math.min(0.1, ol * 0.3))), add(b2, scale(on, ext))],
+    line: [a2, b2], ticks: [tick(a2), tick(b2)],
+    textAt: add(scale(add(a2, b2), 0.5), scale(on, p.size * 0.75)), angle: ang,
+  };
+}
+
+export function drawingBounds(prims: Prim[]) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const addP = (q: Vec2) => { minX = Math.min(minX, q.x); minY = Math.min(minY, q.y); maxX = Math.max(maxX, q.x); maxY = Math.max(maxY, q.y); };
+  for (const p of prims) {
+    if (p.t === 'poly') p.pts.forEach(addP);
+    else if (p.t === 'arc') { addP({ x: p.c.x - p.r, y: p.c.y - p.r }); addP({ x: p.c.x + p.r, y: p.c.y + p.r }); }
+    else if (p.t === 'text') addP(p.p);
+    else { const g = dimGeometry(p); g.ext1.forEach(addP); g.ext2.forEach(addP); addP(g.textAt); }
+  }
+  if (!isFinite(minX)) return { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+  return { minX, minY, maxX, maxY };
+}
+
+export { pt };

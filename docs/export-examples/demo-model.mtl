@@ -1,0 +1,29 @@
+newmtl m_c8a27aff
+Kd 0.7843 0.6353 0.4784
+d 1.000
+illum 1
+
+newmtl m_ebe7dfff
+Kd 0.9216 0.9059 0.8745
+d 1.000
+illum 1
+
+newmtl m_9ecceb59
+Kd 0.6200 0.8000 0.9200
+d 0.350
+illum 1
+
+newmtl m_8b6b4aff
+Kd 0.5451 0.4196 0.2902
+d 1.000
+illum 1
+
+newmtl m_7d8597ff
+Kd 0.4902 0.5216 0.5922
+d 1.000
+illum 1
+
+newmtl m_a47551ff
+Kd 0.6431 0.4588 0.3176
+d 1.000
+illum 1

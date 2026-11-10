@@ -1,0 +1,245 @@
+{
+  "format": "planforge-project",
+  "version": 1,
+  "project": {
+    "schemaVersion": 1,
+    "id": "ea15e6fb-fd6f-4ad8-a30f-3d56e61a0060",
+    "name": "DEMO — My Apartment",
+    "address": "Demo content (not user data)",
+    "description": "",
+    "status": "active",
+    "isDemo": true,
+    "createdAt": 1794318166508,
+    "updatedAt": 1794318166508,
+    "rev": 0,
+    "settings": {
+      "unit": "m",
+      "precision": 2,
+      "showGrid": true,
+      "snap": true
+    },
+    "floors": [
+      {
+        "id": "f2e70030-778a-4b70-8add-af327bf954d3",
+        "name": "Floor 1",
+        "elevation": 0,
+        "defaultHeight": 2.6,
+        "defaultWallThickness": 0.15,
+        "vertices": {
+          "fa47f7c7-2670-4c1f-936d-04f76e9d5e95": {
+            "id": "fa47f7c7-2670-4c1f-936d-04f76e9d5e95",
+            "x": 0,
+            "y": 0
+          },
+          "ed4678bd-1678-4e29-92b6-9608ff50e906": {
+            "id": "ed4678bd-1678-4e29-92b6-9608ff50e906",
+            "x": 4,
+            "y": 0
+          },
+          "690594ec-3da5-487a-9fda-08a66a9ed94a": {
+            "id": "690594ec-3da5-487a-9fda-08a66a9ed94a",
+            "x": 4,
+            "y": 3.5
+          },
+          "f3001dd2-0f30-4379-97e0-aa37140a7b10": {
+            "id": "f3001dd2-0f30-4379-97e0-aa37140a7b10",
+            "x": 0,
+            "y": 3.5
+          },
+          "540f29ea-939a-47b8-b7de-abd5957207bf": {
+            "id": "540f29ea-939a-47b8-b7de-abd5957207bf",
+            "x": 7,
+            "y": 0
+          },
+          "bdc38076-973f-4f88-a47e-85cc1cd680cf": {
+            "id": "bdc38076-973f-4f88-a47e-85cc1cd680cf",
+            "x": 7,
+            "y": 3.5
+          }
+        },
+        "walls": {
+          "64b4ea72-26ed-4392-8d6d-758e2d18f59d": {
+            "id": "64b4ea72-26ed-4392-8d6d-758e2d18f59d",
+            "a": "fa47f7c7-2670-4c1f-936d-04f76e9d5e95",
+            "b": "ed4678bd-1678-4e29-92b6-9608ff50e906",
+            "thickness": 0.15,
+            "height": null,
+            "exterior": true,
+            "exteriorManual": false,
+            "material": "plaster",
+            "standalone": false
+          },
+          "8d8ba733-e560-4154-b6c1-be3b2a751ba8": {
+            "id": "8d8ba733-e560-4154-b6c1-be3b2a751ba8",
+            "a": "ed4678bd-1678-4e29-92b6-9608ff50e906",
+            "b": "690594ec-3da5-487a-9fda-08a66a9ed94a",
+            "thickness": 0.15,
+            "height": null,
+            "exterior": false,
+            "exteriorManual": false,
+            "material": "plaster",
+            "standalone": false
+          },
+          "422123a7-acfb-427c-a4b6-891ba71e119c": {
+            "id": "422123a7-acfb-427c-a4b6-891ba71e119c",
+            "a": "690594ec-3da5-487a-9fda-08a66a9ed94a",
+            "b": "f3001dd2-0f30-4379-97e0-aa37140a7b10",
+            "thickness": 0.15,
+            "height": null,
+            "exterior": true,
+            "exteriorManual": false,
+            "material": "plaster",
+            "standalone": false
+          },
+          "efadba55-3670-40a8-b544-8b886749e4c7": {
+            "id": "efadba55-3670-40a8-b544-8b886749e4c7",
+            "a": "f3001dd2-0f30-4379-97e0-aa37140a7b10",
+            "b": "fa47f7c7-2670-4c1f-936d-04f76e9d5e95",
+            "thickness": 0.15,
+            "height": null,
+            "exterior": true,
+            "exteriorManual": false,
+            "material": "plaster",
+            "standalone": false
+          },
+          "d8795977-3f0b-469e-8c1e-5f41cadcf45a": {
+            "id": "d8795977-3f0b-469e-8c1e-5f41cadcf45a",
+            "a": "ed4678bd-1678-4e29-92b6-9608ff50e906",
+            "b": "540f29ea-939a-47b8-b7de-abd5957207bf",
+            "thickness": 0.15,
+            "height": null,
+            "exterior": true,
+            "exteriorManual": false,
+            "material": "plaster",
+            "standalone": false
+          },
+          "feef2e25-6df1-4f02-bec5-d8e6640a22a5": {
+            "id": "feef2e25-6df1-4f02-bec5-d8e6640a22a5",
+            "a": "540f29ea-939a-47b8-b7de-abd5957207bf",
+            "b": "bdc38076-973f-4f88-a47e-85cc1cd680cf",
+            "thickness": 0.15,
+            "height": null,
+            "exterior": true,
+            "exteriorManual": false,
+            "material": "plaster",
+            "standalone": false
+          },
+          "f2fb30cd-e78e-45e1-b1b4-e1519f6edbae": {
+            "id": "f2fb30cd-e78e-45e1-b1b4-e1519f6edbae",
+            "a": "bdc38076-973f-4f88-a47e-85cc1cd680cf",
+            "b": "690594ec-3da5-487a-9fda-08a66a9ed94a",
+            "thickness": 0.15,
+            "height": null,
+            "exterior": true,
+            "exteriorManual": false,
+            "material": "plaster",
+            "standalone": false
+          }
+        },
+        "rooms": {
+          "311111d7-5484-43de-a047-94c24cf4264a": {
+            "id": "311111d7-5484-43de-a047-94c24cf4264a",
+            "name": "Living",
+            "vertexIds": [
+              "fa47f7c7-2670-4c1f-936d-04f76e9d5e95",
+              "ed4678bd-1678-4e29-92b6-9608ff50e906",
+              "690594ec-3da5-487a-9fda-08a66a9ed94a",
+              "f3001dd2-0f30-4379-97e0-aa37140a7b10"
+            ],
+            "height": 2.75,
+            "floorMaterial": "wood",
+            "wallMaterial": "paint-white",
+            "ceilingMaterial": "paint-white"
+          },
+          "0f97c8a8-fe61-48d3-90d5-16ba16f7f60e": {
+            "id": "0f97c8a8-fe61-48d3-90d5-16ba16f7f60e",
+            "name": "Kitchen",
+            "vertexIds": [
+              "ed4678bd-1678-4e29-92b6-9608ff50e906",
+              "540f29ea-939a-47b8-b7de-abd5957207bf",
+              "bdc38076-973f-4f88-a47e-85cc1cd680cf",
+              "690594ec-3da5-487a-9fda-08a66a9ed94a"
+            ],
+            "height": 2.6,
+            "floorMaterial": "wood",
+            "wallMaterial": "paint-white",
+            "ceilingMaterial": "paint-white"
+          }
+        },
+        "openings": {
+          "fd9d4c66-304e-4aab-b1a4-0b1d222be93c": {
+            "id": "fd9d4c66-304e-4aab-b1a4-0b1d222be93c",
+            "wallId": "64b4ea72-26ed-4392-8d6d-758e2d18f59d",
+            "kind": "window",
+            "subtype": "sliding",
+            "t": 2,
+            "width": 1.2,
+            "height": 1.2,
+            "sill": 0.9,
+            "hinge": "start",
+            "side": 1,
+            "frameDepth": 0.05,
+            "material": "aluminium"
+          },
+          "92722766-8770-478f-814e-b96f456c50ce": {
+            "id": "92722766-8770-478f-814e-b96f456c50ce",
+            "wallId": "8d8ba733-e560-4154-b6c1-be3b2a751ba8",
+            "kind": "door",
+            "subtype": "single",
+            "t": 1.75,
+            "width": 0.8,
+            "height": 2.1,
+            "sill": 0,
+            "hinge": "start",
+            "side": 1,
+            "frameDepth": 0.05,
+            "material": "wood"
+          }
+        },
+        "furniture": {
+          "42b0810f-4637-494a-a968-094eb757cccc": {
+            "catalogId": "sofa-3",
+            "name": "Sofa (3 seat)",
+            "category": "living",
+            "x": 2,
+            "y": 2.85,
+            "rotation": 180,
+            "width": 2.1,
+            "depth": 0.9,
+            "height": 0.85,
+            "elevation": 0,
+            "mirrored": false,
+            "layer": "furniture",
+            "color": "#7d8597",
+            "meta": {
+              "shape": "sofa"
+            },
+            "id": "42b0810f-4637-494a-a968-094eb757cccc"
+          },
+          "e3beaf37-4288-4108-8315-8f43b3121229": {
+            "catalogId": "dining-table",
+            "name": "Dining table",
+            "category": "living",
+            "x": 5.5,
+            "y": 1.75,
+            "rotation": 0,
+            "width": 1.6,
+            "depth": 0.9,
+            "height": 0.75,
+            "elevation": 0,
+            "mirrored": false,
+            "layer": "furniture",
+            "color": "#a47551",
+            "meta": {
+              "shape": "table"
+            },
+            "id": "e3beaf37-4288-4108-8315-8f43b3121229"
+          }
+        },
+        "dimensions": {},
+        "annotations": {},
+        "reference": null
+      }
+    ]
+  }
+}

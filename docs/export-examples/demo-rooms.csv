@@ -1,0 +1,3 @@
+﻿project,floor,room,gross_area_m2,net_area_m2,perimeter_m,height_m,volume_m3,wall_area_m2,ceiling_area_m2,doors,windows
+DEMO — My Apartment,Floor 1,Living,14.000,12.897,15.000,2.750,35.468,36.480,12.897,1,1
+DEMO — My Apartment,Floor 1,Kitchen,10.500,9.547,13.000,2.600,24.823,30.560,9.547,1,0

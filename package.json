@@ -1,0 +1,33 @@
+{
+  "name": "planforge-studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/serve.mjs",
+    "test": "node --import tsx --test packages/*/test/*.test.ts",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -p tsconfig.packages.json && tsc -p tsconfig.web.json",
+    "verify": "npm run typecheck && npm test && npm run build && npm run test:e2e"
+  },
+  "dependencies": {
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "^6.2.108",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "esbuild": "^0.28.0",
+    "playwright": "^1.63.0",
+    "sax": "^1.4.1",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.0"
+  },
+  "engines": { "node": ">=20" }
+}

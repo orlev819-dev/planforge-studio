@@ -1,0 +1,55 @@
+import { useStore } from './store';
+
+export type Lang = 'en' | 'he';
+
+const en = {
+  appName: 'PlanForge Studio', dashboard: 'Dashboard', projects: 'Projects', floorPlans: 'Floor plan', library: 'Object library', reports: 'Reports', estimates: 'Estimates', team: 'Team workspace', settings: 'Settings',
+  notImplemented: 'Not implemented in this build', newProject: 'New project', projectName: 'Project name', address: 'Address', description: 'Description', create: 'Create', cancel: 'Cancel', save: 'Save', apply: 'Apply', close: 'Close',
+  search: 'Search projects…', sortModified: 'Last modified', sortName: 'Name', active: 'Active', archived: 'Archived', trash: 'Trash', open: 'Open', rename: 'Rename', duplicate: 'Duplicate', archive: 'Archive', unarchive: 'Unarchive', delete: 'Delete', restore: 'Restore', deleteForever: 'Delete forever',
+  floors: 'floors', area: 'Area', modified: 'Modified', noProjects: 'No projects yet. Create your first project to start drawing.', importJson: 'Import project (.json)', demo: 'Demo content',
+  undo: 'Undo', redo: 'Redo', saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved changes', saveError: 'Save failed', export: 'Export', share: 'Share', view2d: '2D', view3d: '3D', split: 'Split',
+  select: 'Select', pan: 'Pan', room: 'Room', wall: 'Wall', corner: 'Add corner', door: 'Door', window: 'Window', opening: 'Opening', dimension: 'Dimension', furniture: 'Furniture', annotation: 'Note', eraser: 'Eraser', import: 'Import', calibrate: 'Calibrate',
+  roomDialog: 'Create room with exact dimensions', width: 'Width', length: 'Length', height: 'Ceiling height', name: 'Name', positionX: 'Position X', positionY: 'Position Y', attach: 'Attach to selected room', none: 'None', right: 'Right', left: 'Left', above: 'Above', below: 'Below',
+  inspector: 'Properties', nothingSelected: 'Nothing selected', floor: 'Floor', elevation: 'Elevation', defaultHeight: 'Default height', wallThickness: 'Wall thickness', grossArea: 'Area (centerline)', netArea: 'Net area', perimeter: 'Perimeter', volume: 'Volume', wallArea: 'Wall surface', ceilingArea: 'Ceiling area',
+  thickness: 'Thickness', angle: 'Angle', exterior: 'Exterior', material: 'Material', type: 'Type', sill: 'Sill height', offset: 'Offset from start', swing: 'Swing side', hinge: 'Hinge', flip: 'Flip', rotation: 'Rotation', depth: 'Depth', mirror: 'Mirror', x: 'X', y: 'Y', text: 'Text', layer: 'Layer', distToWall: 'Distance to wall',
+  splitRoom: 'Split room', mergeRooms: 'Merge rooms', rotate90: 'Rotate 90°', deleteCorner: 'Delete corner', mergeWalls: 'Merge walls here', addFloor: 'Add floor', duplicateFloor: 'Duplicate floor', deleteFloor: 'Delete floor',
+  units: 'Units', snap: 'Snap', grid: 'Grid', scale: 'Scale', layers: 'Layers', language: 'Language', theme: 'Theme', light: 'Light', dark: 'Dark', precision: 'Precision',
+  exportTitle: 'Export', format: 'Format', paper: 'Paper', orientation: 'Orientation', landscape: 'Landscape', portrait: 'Portrait', fit: 'Fit to page', header: 'Header', footer: 'Footer', logo: 'Logo (PNG)', includeFurniture: 'Furniture', includeDims: 'Dimensions', includeNotes: 'Annotations', legend: 'Legend', schedule: 'Room schedule page', download: 'Download', unsupported: 'Not supported yet', allFloors: 'All floors', dpi: 'Resolution (DPI)',
+  versions: 'Version history', saveVersion: 'Save version', restoreVersion: 'Restore', backup: 'Download backup',
+  reference: 'Reference plan', importPlan: 'Import plan (PDF/PNG/JPG/SVG)', page: 'Page', opacity: 'Opacity', locked: 'Locked', visible: 'Visible', calibrateHint: 'Click two points with a known distance on the reference plan.', knownDistance: 'Real distance between the two points', removeReference: 'Remove reference',
+  perspective: 'Perspective', top: 'Top', iso: 'Isometric', walk: 'Walk (WASD)', walls: 'Walls', solid: 'Solid', transparent: 'Transparent', hidden: 'Hidden', ceilings: 'Roof / ceilings', currentFloor: 'Current floor', fitView: 'Fit',
+  roomsList: 'Rooms', report: 'Report', totals: 'Totals', count: 'Count', doors: 'Doors', windows: 'Windows',
+  shareInfo: 'Cloud sharing requires the server (not part of this build). Use Export → Project JSON to share a file.',
+  hintRoom: 'Drag a rectangle, or click to place corners (double-click / Enter to close).', hintWall: 'Click start and end points. Esc to finish.', hintOpening: 'Click on a wall to place.', hintFurniture: 'Pick an object, then click on the plan.', hintDimension: 'Click two points.', hintCorner: 'Click on a wall to insert a corner.',
+  placeObject: 'Click on the plan to place', categories: 'Categories', all: 'All',
+};
+type Dict = typeof en;
+const he: Dict = {
+  appName: 'PlanForge Studio', dashboard: 'לוח בקרה', projects: 'פרויקטים', floorPlans: 'תוכנית קומה', library: 'ספריית אובייקטים', reports: 'דוחות', estimates: 'הערכות עלות', team: 'סביבת צוות', settings: 'הגדרות',
+  notImplemented: 'לא מומש בגרסה זו', newProject: 'פרויקט חדש', projectName: 'שם הפרויקט', address: 'כתובת', description: 'תיאור', create: 'צור', cancel: 'ביטול', save: 'שמור', apply: 'החל', close: 'סגור',
+  search: 'חיפוש פרויקטים…', sortModified: 'עודכן לאחרונה', sortName: 'שם', active: 'פעילים', archived: 'בארכיון', trash: 'סל מחזור', open: 'פתח', rename: 'שנה שם', duplicate: 'שכפל', archive: 'העבר לארכיון', unarchive: 'החזר מארכיון', delete: 'מחק', restore: 'שחזר', deleteForever: 'מחק לצמיתות',
+  floors: 'קומות', area: 'שטח', modified: 'עודכן', noProjects: 'אין עדיין פרויקטים. צרו פרויקט ראשון כדי להתחיל לשרטט.', importJson: 'ייבוא פרויקט (‎.json)', demo: 'תוכן הדגמה',
+  undo: 'בטל', redo: 'בצע שוב', saved: 'נשמר', saving: 'שומר…', unsaved: 'שינויים לא שמורים', saveError: 'השמירה נכשלה', export: 'ייצוא', share: 'שיתוף', view2d: '2D', view3d: '3D', split: 'מפוצל',
+  select: 'בחירה', pan: 'הזזה', room: 'חדר', wall: 'קיר', corner: 'הוסף פינה', door: 'דלת', window: 'חלון', opening: 'פתח', dimension: 'מידה', furniture: 'ריהוט', annotation: 'הערה', eraser: 'מחק', import: 'ייבוא', calibrate: 'כיול',
+  roomDialog: 'יצירת חדר במידות מדויקות', width: 'רוחב', length: 'אורך', height: 'גובה תקרה', name: 'שם', positionX: 'מיקום X', positionY: 'מיקום Y', attach: 'הצמד לחדר הנבחר', none: 'ללא', right: 'ימין', left: 'שמאל', above: 'מעל', below: 'מתחת',
+  inspector: 'מאפיינים', nothingSelected: 'לא נבחר דבר', floor: 'קומה', elevation: 'מפלס', defaultHeight: 'גובה ברירת מחדל', wallThickness: 'עובי קיר', grossArea: 'שטח (ציר קיר)', netArea: 'שטח נטו', perimeter: 'היקף', volume: 'נפח', wallArea: 'שטח קירות', ceilingArea: 'שטח תקרה',
+  thickness: 'עובי', angle: 'זווית', exterior: 'חיצוני', material: 'חומר', type: 'סוג', sill: 'גובה אדן', offset: 'מרחק מתחילת הקיר', swing: 'כיוון פתיחה', hinge: 'ציר', flip: 'הפוך', rotation: 'סיבוב', depth: 'עומק', mirror: 'שיקוף', x: 'X', y: 'Y', text: 'טקסט', layer: 'שכבה', distToWall: 'מרחק לקיר',
+  splitRoom: 'פצל חדר', mergeRooms: 'אחד חדרים', rotate90: 'סובב 90°', deleteCorner: 'מחק פינה', mergeWalls: 'אחד קירות כאן', addFloor: 'הוסף קומה', duplicateFloor: 'שכפל קומה', deleteFloor: 'מחק קומה',
+  units: 'יחידות', snap: 'הצמדה', grid: 'רשת', scale: 'קנה מידה', layers: 'שכבות', language: 'שפה', theme: 'ערכת נושא', light: 'בהיר', dark: 'כהה', precision: 'דיוק',
+  exportTitle: 'ייצוא', format: 'פורמט', paper: 'נייר', orientation: 'כיוון', landscape: 'לרוחב', portrait: 'לאורך', fit: 'התאם לדף', header: 'כותרת עליונה', footer: 'כותרת תחתונה', logo: 'לוגו (PNG)', includeFurniture: 'ריהוט', includeDims: 'מידות', includeNotes: 'הערות', legend: 'מקרא', schedule: 'עמוד טבלת חדרים', download: 'הורדה', unsupported: 'עדיין לא נתמך', allFloors: 'כל הקומות', dpi: 'רזולוציה (DPI)',
+  versions: 'היסטוריית גרסאות', saveVersion: 'שמור גרסה', restoreVersion: 'שחזר', backup: 'הורד גיבוי',
+  reference: 'תוכנית רקע', importPlan: 'ייבוא תוכנית (PDF/PNG/JPG/SVG)', page: 'עמוד', opacity: 'שקיפות', locked: 'נעול', visible: 'גלוי', calibrateHint: 'לחצו על שתי נקודות שהמרחק ביניהן ידוע בתוכנית הרקע.', knownDistance: 'המרחק האמיתי בין שתי הנקודות', removeReference: 'הסר רקע',
+  perspective: 'פרספקטיבה', top: 'מבט על', iso: 'איזומטרי', walk: 'הליכה (WASD)', walls: 'קירות', solid: 'מלא', transparent: 'שקוף', hidden: 'מוסתר', ceilings: 'גג / תקרות', currentFloor: 'קומה נוכחית', fitView: 'התאם',
+  roomsList: 'חדרים', report: 'דוח', totals: 'סיכום', count: 'כמות', doors: 'דלתות', windows: 'חלונות',
+  shareInfo: 'שיתוף בענן דורש שרת (לא כלול בגרסה זו). השתמשו בייצוא ← JSON כדי לשתף קובץ.',
+  hintRoom: 'גררו מלבן, או לחצו כדי למקם פינות (לחיצה כפולה / Enter לסגירה).', hintWall: 'לחצו על נקודת התחלה וסיום. Esc לסיום.', hintOpening: 'לחצו על קיר כדי למקם.', hintFurniture: 'בחרו אובייקט ולחצו על התוכנית.', hintDimension: 'לחצו על שתי נקודות.', hintCorner: 'לחצו על קיר כדי להוסיף פינה.',
+  placeObject: 'לחצו על התוכנית כדי למקם', categories: 'קטגוריות', all: 'הכל',
+};
+
+export const dicts: Record<Lang, Dict> = { en, he };
+export type TKey = keyof Dict;
+export function useT() {
+  const lang = useStore((s) => s.lang);
+  const d = dicts[lang];
+  return { t: (k: TKey) => d[k], lang, dir: lang === 'he' ? 'rtl' : 'ltr' as 'rtl' | 'ltr' };
+}
