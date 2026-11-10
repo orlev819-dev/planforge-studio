@@ -67,16 +67,22 @@ export function Inspector() {
             <button role="tab" data-testid="measure-interior" className={interior ? 'on' : ''} onClick={() => setMeasure('interior')}>{t('interiorMeasure')}</button>
           </div>
         </div>
-        {walls.map((w, i) => w && (
-          <div className="wall-row" key={w.id}>
-            <LengthField label={`${w.kind === 'railing' ? t('railing') : t('wall')} ${i + 1}`} value={interior ? m.netEdgeLengths[i] : m.edgeLengths[i]} unit={unit} testId={`room-wall-${i}`}
-              onCommit={(len) => len && editFloor('Wall length', (f) => (interior
-                ? setRoomEdgeInteriorLength(f, id, i, len)
-                : setWallLength(f, w.id, len, w.a === r.vertexIds[i] ? 'a' : 'b')))} />
-            <button className={`icon-btn ${w.kind === 'railing' ? 'on' : ''}`} data-testid={`room-wall-${i}-railing`} title={t('railing')}
-              onClick={() => editFloor('Wall type', (f) => updateWall(f, w.id, { kind: w.kind === 'railing' ? 'solid' : 'railing' }))}><Icon name="railing" size={18} /></button>
-          </div>
-        ))}
+        <div data-testid="room-walls">
+          {r.vertexIds.map((_, i) => {
+            const w = walls[i];
+            const len = (interior ? m.netEdgeLengths[i] : m.edgeLengths[i]) ?? m.edgeLengths[i] ?? null;
+            return (
+              <div className="wall-row" key={w?.id ?? `edge-${i}`}>
+                <LengthField label={`${w?.kind === 'railing' ? t('railing') : t('wall')} ${i + 1}`} value={len} unit={unit} testId={`room-wall-${i}`}
+                  onCommit={(v) => v && editFloor('Wall length', (f) => (interior || !w
+                    ? setRoomEdgeInteriorLength(f, id, i, v)
+                    : setWallLength(f, w.id, v, w.a === r.vertexIds[i] ? 'a' : 'b')))} />
+                <button className={`icon-btn ${w?.kind === 'railing' ? 'on' : ''}`} data-testid={`room-wall-${i}-railing`} title={t('railing')} disabled={!w}
+                  onClick={() => w && editFloor('Wall type', (f) => updateWall(f, w.id, { kind: w.kind === 'railing' ? 'solid' : 'railing' }))}><Icon name="railing" size={18} /></button>
+              </div>
+            );
+          })}
+        </div>
         <SplitRoom roomId={id} floor={floor} />
         <div className="row">
           <button className="btn" onClick={() => editFloor('Rotate room', (f) => rotateRoom(f, id, 90))}>{t('rotate90')}</button>

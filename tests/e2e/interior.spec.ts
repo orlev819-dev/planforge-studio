@@ -51,3 +51,31 @@ test('interior wall dimensions: read, edit, and carry into the plan and PDF', as
   await expect(page.getByTestId('room-wall-0')).toHaveValue('3.87');
   await expect(page.getByTestId('room-area')).toHaveText(`${(3.87 * 3.5).toFixed(2)} m²`);
 });
+
+test('wall rows survive a room whose wall records are missing (repaired on edit)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('new-project').click();
+  await page.getByTestId('project-name-input').fill('Broken walls');
+  await page.getByTestId('project-submit').click();
+  await page.getByTestId('room-dialog-open').click();
+  await page.getByTestId('room-create').click();
+  // simulate a damaged save: the room keeps its corners but the wall records are gone
+  const id = await page.evaluate(async () => {
+    const s = (window as any).__planforge.getState();
+    const proj = JSON.parse(JSON.stringify(s.project));
+    proj.floors[0].walls = {};
+    const db: IDBDatabase = await new Promise((res, rej) => { const r = indexedDB.open('planforge', 1); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    await new Promise((res, rej) => { const t = db.transaction('projects', 'readwrite'); t.objectStore('projects').put(proj); t.oncomplete = () => res(null); t.onerror = () => rej(t.error); });
+    return proj.id as string;
+  });
+  await page.goto(`/#/project/${id}`);
+  await page.waitForTimeout(400);
+  const box = (await page.getByTestId('plan-canvas').boundingBox())!;
+  const v = JSON.parse((await page.getByTestId('plan-canvas').getAttribute('data-view'))!);
+  await page.mouse.click(box.x + 2 * v.scale + v.ox, box.y + 1.75 * v.scale + v.oy);
+  await expect(page.getByTestId('inspector-room')).toBeVisible();
+  await expect(page.getByTestId('room-wall-0')).toBeVisible();
+  await expect(page.getByTestId('room-wall-3')).toBeVisible();
+  await page.getByTestId('measure-interior').click();
+  await expect(page.getByTestId('room-wall-0')).toBeVisible();
+});
