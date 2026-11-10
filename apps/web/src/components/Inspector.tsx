@@ -47,13 +47,18 @@ export function Inspector() {
           <Stat label={t('wallArea')} value={A(m.wallArea)} />
           <Stat label={t('ceilingArea')} value={A(m.ceilingArea)} />
           <Stat label={`${t('doors')} / ${t('windows')}`} value={`${m.doors} / ${m.windows}`} />
+          {m.railingLength > 0 && <Stat label={t('railingLength')} value={L(m.railingLength)} testId="room-railing" />}
           {m.loweredArea > 0 && <Stat label={t('loweredArea')} value={A(m.loweredArea)} testId="room-lowered" />}
           {m.soffitSideArea > 0 && <Stat label={t('soffitFaces')} value={A(m.soffitSideArea)} />}
         </div>
         <h4>{t('walls')}</h4>
         {walls.map((w, i) => w && (
-          <LengthField key={w.id} label={`${t('wall')} ${i + 1}`} value={m.edgeLengths[i]} unit={unit} testId={`room-wall-${i}`}
-            onCommit={(len) => len && editFloor('Wall length', (f) => setWallLength(f, w.id, len, w.a === r.vertexIds[i] ? 'a' : 'b'))} />
+          <div className="wall-row" key={w.id}>
+            <LengthField label={`${w.kind === 'railing' ? t('railing') : t('wall')} ${i + 1}`} value={m.edgeLengths[i]} unit={unit} testId={`room-wall-${i}`}
+              onCommit={(len) => len && editFloor('Wall length', (f) => setWallLength(f, w.id, len, w.a === r.vertexIds[i] ? 'a' : 'b'))} />
+            <button className={`icon-btn ${w.kind === 'railing' ? 'on' : ''}`} data-testid={`room-wall-${i}-railing`} title={t('railing')}
+              onClick={() => editFloor('Wall type', (f) => updateWall(f, w.id, { kind: w.kind === 'railing' ? 'solid' : 'railing' }))}>⑁</button>
+          </div>
         ))}
         <SplitRoom roomId={id} floor={floor} />
         <div className="row">
@@ -68,18 +73,26 @@ export function Inspector() {
     const w = floor.walls[id];
     const wm = wallMetrics(floor, id);
     const ops = Object.values(floor.openings).filter((o) => o.wallId === id);
+    const railing = w.kind === 'railing';
     return (
-      <Panel title={t('wall')} testId="inspector-wall">
+      <Panel title={railing ? t('railing') : t('wall')} testId="inspector-wall">
+        <SelectField label={t('wallType')} value={w.kind} testId="wall-kind"
+          options={[{ value: 'solid', label: t('solidWall') }, { value: 'railing', label: t('railing') }]}
+          onChange={(v) => editFloor('Wall type', (f) => updateWall(f, id, { kind: v }))} />
+        {railing && <SelectField label={t('railingStyle')} value={w.railingStyle} testId="railing-style"
+          options={[{ value: 'bars', label: t('bars') }, { value: 'glass', label: t('glass') }, { value: 'panel', label: t('panel') }]}
+          onChange={(v) => editFloor('Railing style', (f) => updateWall(f, id, { railingStyle: v }))} />}
         <LengthField label={t('length')} value={wm.length} unit={unit} testId="wall-length" onCommit={(len) => len && editFloor('Wall length', (f) => setWallLength(f, id, len))} />
         <NumberField label={t('angle')} value={+wm.angle.toFixed(2)} suffix="°" step={0.5} onCommit={(a) => editFloor('Wall angle', (f) => setWallAngle(f, id, a))} />
         <LengthField label={t('thickness')} value={w.thickness} unit={unit} testId="wall-thickness" onCommit={(v) => v && editFloor('Wall thickness', (f) => updateWall(f, id, { thickness: v }))} />
-        <LengthField label={t('objHeight')} value={w.height} unit={unit} allowEmpty placeholder={L(wm.height)} onCommit={(v) => editFloor('Wall height', (f) => updateWall(f, id, { height: v }))} />
-        <Check label={t('exterior')} checked={w.exterior} onChange={(b) => editFloor('Wall type', (f) => updateWall(f, id, { exterior: b }))} />
-        <SelectField label={t('material')} value={w.material} options={MATERIALS.map((x) => ({ value: x, label: x }))} onChange={(v) => editFloor('Wall material', (f) => updateWall(f, id, { material: v }))} />
-        <div className="stats"><Stat label={t('wallArea')} value={A(wm.sideArea)} /><Stat label={`${t('doors')} / ${t('windows')}`} value={String(ops.length)} /></div>
+        <LengthField label={t('objHeight')} value={w.height} unit={unit} allowEmpty={!railing} placeholder={L(wm.height)} testId="wall-height" onCommit={(v) => editFloor('Wall height', (f) => updateWall(f, id, { height: v }))} />
+        {!railing && <Check label={t('exterior')} checked={w.exterior} onChange={(b) => editFloor('Wall type', (f) => updateWall(f, id, { exterior: b }))} />}
+        <SelectField label={t('material')} value={w.material} options={(railing ? ['steel', 'aluminium', 'glass', 'wood', 'stone'] : MATERIALS).map((x) => ({ value: x, label: x }))} onChange={(v) => editFloor('Wall material', (f) => updateWall(f, id, { material: v }))} />
+        <div className="stats"><Stat label={railing ? t('area') : t('wallArea')} value={A(wm.sideArea)} />{!railing && <Stat label={`${t('doors')} / ${t('windows')}`} value={String(ops.length)} />}</div>
+        {railing && <div className="hint-text">{t('railingNoOpening')}</div>}
         <div className="row">
-          <button className="btn" onClick={() => editFloor('Add door', (f) => addOpening(f, id, 'door', wm.length / 2, { width: getState().openingDefaults.door }).floor)}>+ {t('door')}</button>
-          <button className="btn" onClick={() => editFloor('Add window', (f) => addOpening(f, id, 'window', wm.length / 2, { width: getState().openingDefaults.window }).floor)}>+ {t('window')}</button>
+          {!railing && <button className="btn" onClick={() => editFloor('Add door', (f) => addOpening(f, id, 'door', wm.length / 2, { width: getState().openingDefaults.door }).floor)}>+ {t('door')}</button>}
+          {!railing && <button className="btn" onClick={() => editFloor('Add window', (f) => addOpening(f, id, 'window', wm.length / 2, { width: getState().openingDefaults.window }).floor)}>+ {t('window')}</button>}
           {w.standalone && <button className="btn danger" onClick={() => { editFloor('Delete wall', (f) => deleteEntity(f, id)); select([]); }}>{t('delete')}</button>}
         </div>
       </Panel>

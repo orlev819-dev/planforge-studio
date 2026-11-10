@@ -3,11 +3,11 @@
  * World frame: Y-up, plan (x, y) at height h -> (x, floorElevation + h, y). Units: meters.
  * Each part carries a `key` derived from its inputs so renderers can skip re-uploading unchanged parts.
  */
-import type { Floor, Furniture, ModelAsset, Project, Vec2 } from '../../shared-types/src/index';
+import type { Floor, Furniture, ModelAsset, Project, Vec2, Wall } from '../../shared-types/src/index';
 import { decodeFloats } from '../../cad-io/src/model-import';
 import { ceilingAbove, furnitureCorners, add, dist, norm, openingGeometry, perp, roomPoints, scale, sub, triangulate, wallEnds, wallHeight, centroid } from '../../geometry/src/index';
 
-export type PartKind = 'wall' | 'floor' | 'ceiling' | 'soffit' | 'furniture' | 'glass' | 'door';
+export type PartKind = 'wall' | 'railing' | 'floor' | 'ceiling' | 'soffit' | 'furniture' | 'glass' | 'door';
 export interface MeshPart {
   key: string;
   id: string;
@@ -24,6 +24,7 @@ export interface MeshPart {
 export interface MeshOptions { ceilings?: boolean; furniture?: boolean; floors?: string[]; assets?: Record<string, ModelAsset> }
 
 const MATERIAL_COLORS: Record<string, string> = {
+  steel: '#8c949e', aluminium: '#aeb6bf', glass: '#cfe3f2',
   wood: '#c8a27a', tile: '#d9d9d6', concrete: '#a8a8a8', carpet: '#9a8c98', marble: '#ece8e1', 'paint-white': '#f1efe9', plaster: '#ebe7df', brick: '#b5654a', stone: '#9c9a92',
 };
 export const materialColor = (m: string) => MATERIAL_COLORS[m] ?? (m.startsWith('#') ? m : '#e6e2da');
@@ -65,9 +66,49 @@ const quad = (a: Vec2, d: Vec2, n: Vec2, u0: number, u1: number, h: number): Vec
   return [add(p0, scale(n, h)), add(p1, scale(n, h)), add(p1, scale(n, -h)), add(p0, scale(n, -h))];
 };
 
+/** Railing: end/intermediate posts, a top handrail, and bars / glass / parapet between them. */
+function railingParts(f: Floor, w: Wall): MeshPart[] {
+  const { a, b } = wallEnds(f, w);
+  const L = dist(a, b);
+  if (L < 1e-4) return [];
+  const d = norm(sub(b, a)), n = perp(d), t = Math.max(0.03, w.thickness), h = t / 2;
+  const H = wallHeight(f, w), e = f.elevation;
+  const key = JSON.stringify(['rail', a, b, t, H, e, w.railingStyle, w.material]);
+  const span = (u0: number, u1: number, half: number) => quad(a, d, n, u0, u1, half);
+  const S = new Builder();                 // structure: posts + handrail
+  const railH = Math.min(0.05, H * 0.08);
+  S.prism(span(-h, L + h, h * 1.15), e + H - railH, e + H);          // handrail
+  const postStep = 1.2;
+  const posts = Math.max(1, Math.round(L / postStep));
+  for (let i = 0; i <= posts; i++) {
+    const u = (L * i) / posts;
+    S.prism(span(Math.max(0, u - h), Math.min(L, u + h) + (u === 0 ? 2 * h : 0), h), e, e + H - railH);
+  }
+  const parts: MeshPart[] = [{ key: `${key}#s`, id: w.id, kind: 'railing', floorId: f.id, color: hexToRgba(materialColor(w.material)), positions: S.positions, normals: S.normals, indices: S.indices }];
+  if (w.railingStyle === 'glass') {
+    const G = new Builder();
+    G.prism(span(h, L - h, 0.006), e + 0.04, e + H - railH);
+    parts.push({ key: `${key}#g`, id: w.id, kind: 'glass', floorId: f.id, color: [0.62, 0.8, 0.92, 0.3], positions: G.positions, normals: G.normals, indices: G.indices });
+  } else if (w.railingStyle === 'panel') {
+    const P = new Builder();
+    P.prism(span(0, L, h), e, e + H - railH);
+    parts.push({ key: `${key}#p`, id: w.id, kind: 'railing', floorId: f.id, color: hexToRgba(materialColor(w.material)), positions: P.positions, normals: P.normals, indices: P.indices });
+  } else {
+    const B = new Builder();
+    const step = 0.12, bars = Math.max(1, Math.floor(L / step));
+    for (let i = 1; i < bars; i++) {
+      const u = (L * i) / bars;
+      B.prism(span(u - 0.01, u + 0.01, 0.01), e + 0.02, e + H - railH);
+    }
+    parts.push({ key: `${key}#b`, id: w.id, kind: 'railing', floorId: f.id, color: hexToRgba(materialColor(w.material)), positions: B.positions, normals: B.normals, indices: B.indices });
+  }
+  return parts;
+}
+
 function wallParts(f: Floor, deg: Map<string, number>): MeshPart[] {
   const out: MeshPart[] = [];
   for (const w of Object.values(f.walls)) {
+    if (w.kind === 'railing') { out.push(...railingParts(f, w)); continue; }
     const { a, b } = wallEnds(f, w);
     const L = dist(a, b), d = norm(sub(b, a)), n = perp(d), h = w.thickness / 2, H = wallHeight(f, w), e = f.elevation;
     const ops = Object.values(f.openings).filter((o) => o.wallId === w.id).sort((x, y) => x.t - y.t);

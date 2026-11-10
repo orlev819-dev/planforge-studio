@@ -27,7 +27,14 @@ export interface Wall {
   material: string;
   /** standalone partition wall not bound to a room edge */
   standalone: boolean;
+  /** 'railing' = balcony/stair railing: low, open, never reaches the ceiling */
+  kind: WallKind;
+  railingStyle: RailingStyle;
 }
+
+export type WallKind = 'solid' | 'railing';
+/** bars = vertical balusters, glass = glazed panel, panel = solid low parapet */
+export type RailingStyle = 'bars' | 'glass' | 'panel';
 
 export interface Room {
   id: ID;

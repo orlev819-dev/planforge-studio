@@ -10,7 +10,7 @@ import { createProject, addFloor, replaceFloor, migrateProject } from '../../../
 import { dbApi } from './db';
 import type { Lang } from './i18n';
 
-export type Tool = 'select' | 'pan' | 'room' | 'wall' | 'corner' | 'door' | 'window' | 'opening' | 'dimension' | 'furniture' | 'annotation' | 'eraser' | 'calibrate' | 'ceiling';
+export type Tool = 'select' | 'pan' | 'room' | 'wall' | 'railing' | 'corner' | 'door' | 'window' | 'opening' | 'dimension' | 'furniture' | 'annotation' | 'eraser' | 'calibrate' | 'ceiling';
 export type View = '2d' | '3d' | 'split';
 export type Route = { page: 'dashboard' } | { page: 'editor'; projectId: ID } | { page: 'library' } | { page: 'reports' } | { page: 'settings' };
 export type LayerKey = 'rooms' | 'walls' | 'openings' | 'furniture' | 'ceilings' | 'dimensions' | 'text' | 'annotations' | 'reference';

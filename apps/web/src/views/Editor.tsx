@@ -17,7 +17,7 @@ import { useT, type TKey } from '../i18n';
 
 const TOOLS: { id: Tool; key: TKey; icon: string; kbd?: string }[] = [
   { id: 'select', key: 'select', icon: '⬉', kbd: 'V' }, { id: 'pan', key: 'pan', icon: '✋', kbd: 'H' }, { id: 'room', key: 'room', icon: '▭', kbd: 'R' },
-  { id: 'wall', key: 'wall', icon: '▬', kbd: 'W' }, { id: 'corner', key: 'corner', icon: '⌜' }, { id: 'door', key: 'door', icon: '◜', kbd: 'D' },
+  { id: 'wall', key: 'wall', icon: '▬', kbd: 'W' }, { id: 'railing', key: 'railing', icon: '⑁', kbd: 'B' }, { id: 'corner', key: 'corner', icon: '⌜' }, { id: 'door', key: 'door', icon: '◜', kbd: 'D' },
   { id: 'window', key: 'window', icon: '▤', kbd: 'N' }, { id: 'opening', key: 'opening', icon: '⊓' }, { id: 'dimension', key: 'dimension', icon: '↔', kbd: 'M' },
   { id: 'ceiling', key: 'ceiling', icon: '⬓', kbd: 'C' }, { id: 'furniture', key: 'furniture', icon: '🛋' }, { id: 'annotation', key: 'annotation', icon: '✎' }, { id: 'eraser', key: 'eraser', icon: '⌫', kbd: 'E' },
 ];

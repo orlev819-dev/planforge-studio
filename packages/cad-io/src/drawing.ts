@@ -26,7 +26,7 @@ export interface DrawingOptions {
 
 export const DEFAULT_COLORS = {
   wall: '#2b2d31', roomFill: '#f4efe6', roomStroke: '#b9b0a2', door: '#3a6ea5', window: '#2a9d8f', furniture: '#6c757d',
-  furnitureFill: '#ffffff', dim: '#c0392b', text: '#1f2328', annotation: '#7048e8', ceiling: '#9c36b5',
+  furnitureFill: '#ffffff', dim: '#c0392b', text: '#1f2328', annotation: '#7048e8', ceiling: '#9c36b5', railing: '#1864ab',
 };
 
 export function arcPoints(c: Vec2, r: number, a0: number, a1: number, segs = 24): Vec2[] {
@@ -59,6 +59,38 @@ export function wallQuads(f: Floor, w: Wall, deg = wallDegree(f)): Vec2[][] {
   });
 }
 
+/** Railing in plan: the two rail lines plus balusters / glass hatch / parapet fill. */
+export function railingPrims(f: Floor, w: Wall, color: string): Prim[] {
+  const { a, b } = wallEnds(f, w);
+  const L = dist(a, b);
+  if (L < 1e-6) return [];
+  const d = norm(sub(b, a)), n = perp(d), h = Math.max(w.thickness, 0.04) / 2;
+  const out: Prim[] = [];
+  const side = (k: number) => [add(a, scale(n, k * h)), add(b, scale(n, k * h))];
+  if (w.railingStyle === 'panel') {
+    out.push({ t: 'poly', layer: 'walls', pts: [...side(1), ...side(-1).reverse()], closed: true, fill: '#ffffff', stroke: color, width: 0.02, id: w.id });
+  } else {
+    out.push({ t: 'poly', layer: 'walls', pts: side(1), closed: false, stroke: color, width: 0.02, id: w.id });
+    out.push({ t: 'poly', layer: 'walls', pts: side(-1), closed: false, stroke: color, width: 0.02, id: w.id });
+  }
+  if (w.railingStyle === 'bars') {
+    const step = 0.12, n0 = Math.max(1, Math.round(L / step));
+    for (let i = 0; i <= n0; i++) {
+      const p = add(a, scale(d, (L * i) / n0));
+      out.push({ t: 'poly', layer: 'walls', pts: [add(p, scale(n, h)), add(p, scale(n, -h))], closed: false, stroke: color, width: 0.008, id: w.id });
+    }
+  } else if (w.railingStyle === 'glass') {
+    const step = 0.25, n0 = Math.max(1, Math.round(L / step));
+    for (let i = 0; i <= n0; i++) {
+      const p = add(a, scale(d, (L * i) / n0));
+      out.push({ t: 'poly', layer: 'walls', pts: [add(p, scale(n, h)), add(add(p, scale(d, 0.1)), scale(n, -h))], closed: false, stroke: color, width: 0.005, id: w.id });
+    }
+  }
+  // end posts
+  for (const p of [a, b]) out.push({ t: 'poly', layer: 'walls', pts: [add(p, scale(n, h * 1.6)), add(p, scale(n, -h * 1.6))], closed: false, stroke: color, width: 0.03, id: w.id });
+  return out;
+}
+
 export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
   const C = { ...DEFAULT_COLORS, ...(opts.colors ?? {}) };
   const out: Prim[] = [];
@@ -70,8 +102,10 @@ export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
 
   if (f.reference && f.reference.visible) { /* reference image is drawn by raster-capable renderers only */ }
 
-  for (const w of Object.values(f.walls))
+  for (const w of Object.values(f.walls)) {
+    if (w.kind === 'railing') { out.push(...railingPrims(f, w, C.railing)); continue; }
     for (const q of wallQuads(f, w, deg)) out.push({ t: 'poly', layer: 'walls', pts: q, closed: true, fill: C.wall, stroke: C.wall, width: 0.005, id: w.id });
+  }
 
   for (const o of Object.values(f.openings)) {
     const g = openingGeometry(f, o);

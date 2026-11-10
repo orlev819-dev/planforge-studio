@@ -41,11 +41,17 @@ export function roomsOfWall(f: Floor, w: Wall): Room[] {
   return Object.values(f.rooms).filter((r) => r.vertexIds.some((id, i) => edgeKey(id, r.vertexIds[(i + 1) % r.vertexIds.length]) === k));
 }
 
+/** default railing height when none is set (a common balcony-rail height; not a code requirement) */
+export const DEFAULT_RAILING_HEIGHT = 1.05;
+
 export function wallHeight(f: Floor, w: Wall): number {
   if (w.height != null) return w.height;
+  if (w.kind === 'railing') return DEFAULT_RAILING_HEIGHT;
   const rs = roomsOfWall(f, w);
   return rs.length ? Math.max(...rs.map((r) => r.height)) : f.defaultHeight;
 }
+
+export const isRailing = (w: Wall) => w.kind === 'railing';
 
 export function wallByKey(f: Floor): Map<string, Wall> {
   const m = new Map<string, Wall>();

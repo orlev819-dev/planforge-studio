@@ -79,6 +79,8 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   const [barLen, setBarLen] = useState('');
   const coarse = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
   const touchK = () => (ptype.current === 'touch' ? 2.2 : 1);
+  /** options for addPartitionWall based on the active tool (wall vs balcony railing) */
+  const partOpts = () => (getState().tool === 'railing' ? { kind: 'railing' as const } : {});
 
   const shown = preview ?? floor;
   const assets = useStore((s) => s.project!.assets);
@@ -321,7 +323,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
           if (L && L > 0) {
             const d = norm(sub(hover.snap.p, anchor));
             const p = { x: +(anchor.x + d.x * L).toFixed(6), y: +(anchor.y + d.y * L).toFixed(6) };
-            if (wallStart) { editFloor('Draw wall', (f) => addPartitionWall(f, wallStart, p).floor); setWallStart(p); }
+            if (wallStart) { editFloor('Draw wall', (f) => addPartitionWall(f, wallStart, p, undefined, partOpts()).floor); setWallStart(p); }
             else setPoly((ps) => [...ps, p]);
           }
           return;
@@ -337,7 +339,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
         nudge(e.key === 'ArrowLeft' ? -s : e.key === 'ArrowRight' ? s : 0, e.key === 'ArrowUp' ? -s : e.key === 'ArrowDown' ? s : 0);
         return;
       }
-      const map: Record<string, Parameters<typeof setTool>[0]> = { v: 'select', h: 'pan', r: 'room', w: 'wall', d: 'door', n: 'window', m: 'dimension', e: 'eraser', c: 'ceiling' };
+      const map: Record<string, Parameters<typeof setTool>[0]> = { v: 'select', h: 'pan', r: 'room', w: 'wall', b: 'railing', d: 'door', n: 'window', m: 'dimension', e: 'eraser', c: 'ceiling' };
       if (map[k]) setTool(map[k]);
       if (k === 'g') setState((s) => ({ project: s.project && { ...s.project, settings: { ...s.project.settings, showGrid: !s.project.settings.showGrid } } }));
       if (k === 's') setState((s) => ({ project: s.project && { ...s.project, settings: { ...s.project.settings, snap: !s.project.settings.snap } } }));
@@ -357,7 +359,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       const d = norm(sub(hover.snap.p, anchor));
       if (!d.x && !d.y) { setBarLen(String(+L.toFixed(4))); return true; }
       const p = { x: +(anchor.x + d.x * L).toFixed(6), y: +(anchor.y + d.y * L).toFixed(6) };
-      if (wallStart) { if (editFloor('Draw wall (laser)', (f) => addPartitionWall(f, wallStart, p).floor)) setWallStart(p); }
+      if (wallStart) { if (editFloor('Draw wall (laser)', (f) => addPartitionWall(f, wallStart, p, undefined, partOpts()).floor)) setWallStart(p); }
       else setPoly((ps) => [...ps, p]);
       return true;
     });
@@ -371,7 +373,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     const L = parseLength(barLen, getState().project!.settings.unit === 'ft-in' ? 'ft-in' : getState().project!.settings.unit);
     if (!L || L <= 0) { toast(t('enterLength'), 'error'); return; }
     const p = { x: +(anchor.x + dx * L).toFixed(6), y: +(anchor.y + dy * L).toFixed(6) };
-    if (wallStart) { if (editFloor('Draw wall', (f) => addPartitionWall(f, wallStart, p).floor)) setWallStart(p); }
+    if (wallStart) { if (editFloor('Draw wall', (f) => addPartitionWall(f, wallStart, p, undefined, partOpts()).floor)) setWallStart(p); }
     else if (poly.length >= 3 && dist(p, poly[0]) < 1e-3) finishPolygon(poly);
     else setPoly((ps) => [...ps, p]);
     setBarLen('');
@@ -422,7 +424,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     if (e.button === 2) return;
     const w = toWorld(view.current, s.x, s.y);
     if (e.button === 1 || tool === 'pan' || space.current) { inter.current = { kind: 'pan', sx: s.x, sy: s.y, ox: view.current.ox, oy: view.current.oy }; return; }
-    const sn = snap(w, { anchor: tool === 'wall' ? wallStart : tool === 'room' ? poly[poly.length - 1] ?? null : null, alt: e.altKey });
+    const sn = snap(w, { anchor: (tool === 'wall' || tool === 'railing') ? wallStart : tool === 'room' ? poly[poly.length - 1] ?? null : null, alt: e.altKey });
     switch (tool) {
       case 'select': {
         const hit = hitTest(w);
@@ -448,10 +450,11 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       }
       case 'room': inter.current = { kind: 'rect-room', start: sn.p, sx: s.x, sy: s.y, moved: false }; return;
       case 'ceiling': inter.current = { kind: 'rect-room', start: sn.p, sx: s.x, sy: s.y, moved: false, ceiling: true }; return;
+      case 'railing':
       case 'wall': {
         if (!wallStart) { setWallStart(sn.p); return; }
         if (dist(wallStart, sn.p) < 0.05) { setWallStart(null); return; }
-        const ok = editFloor('Draw wall', (f) => addPartitionWall(f, wallStart, sn.p).floor);
+        const ok = editFloor(tool === 'railing' ? 'Draw railing' : 'Draw wall', (f) => addPartitionWall(f, wallStart, sn.p, undefined, partOpts()).floor);
         if (ok) setWallStart(sn.p);
         return;
       }
@@ -525,7 +528,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       return;
     }
     const w = toWorld(view.current, s.x, s.y);
-    const anchor = tool === 'wall' ? wallStart : tool === 'room' ? poly[poly.length - 1] ?? null : tool === 'dimension' ? dimStart : null;
+    const anchor = (tool === 'wall' || tool === 'railing') ? wallStart : tool === 'room' ? poly[poly.length - 1] ?? null : tool === 'dimension' ? dimStart : null;
     const exclude = it?.kind === 'drag' && it.hit.type === 'vertex' ? it.hit.id : undefined;
     const sn = snap(w, { exclude, anchor, alt: e.altKey });
     setHover({ world: w, snap: sn, hit: it ? null : (tool === 'select' || tool === 'eraser' ? hitTest(w) : ['door', 'window', 'opening', 'corner'].includes(tool) ? hitTest(w, floor, { wallsOnly: true }) : null) });
@@ -778,7 +781,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     }
     if (wallStart && hover) {
       const p0 = S(wallStart), p1 = S(hover.snap.p);
-      ctx.strokeStyle = '#2b2d31'; ctx.lineWidth = Math.max(2, 0.1 * v.scale); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+      ctx.strokeStyle = tool === 'railing' ? '#1864ab' : '#2b2d31'; ctx.lineWidth = Math.max(2, (tool === 'railing' ? 0.05 : 0.1) * v.scale); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
       label(hover.snap.p, typed ? `⌨ ${typed}` : fmt(dist(wallStart, hover.snap.p)));
     }
     if (dimStart && hover) {
@@ -810,7 +813,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     if (hover) { const s = S(hover.snap.p); ctx.strokeStyle = '#e8590c'; ctx.beginPath(); ctx.moveTo(s.x, 0); ctx.lineTo(s.x, R); ctx.moveTo(0, s.y); ctx.lineTo(R, s.y); ctx.stroke(); }
   });
 
-  const hint = tool === 'ceiling' ? t('hintCeiling') : tool === 'room' ? t(coarse ? 'hintRoomTouch' : 'hintRoom') : tool === 'wall' ? t(coarse ? 'hintWallTouch' : 'hintWall') : ['door', 'window', 'opening'].includes(tool) ? t('hintOpening') : tool === 'furniture' ? t('hintFurniture') : tool === 'dimension' ? t('hintDimension') : tool === 'corner' ? t('hintCorner') : tool === 'calibrate' ? t('calibrateHint') : null;
+  const hint = tool === 'railing' ? t('hintRailing') : tool === 'ceiling' ? t('hintCeiling') : tool === 'room' ? t(coarse ? 'hintRoomTouch' : 'hintRoom') : tool === 'wall' ? t(coarse ? 'hintWallTouch' : 'hintWall') : ['door', 'window', 'opening'].includes(tool) ? t('hintOpening') : tool === 'furniture' ? t('hintFurniture') : tool === 'dimension' ? t('hintDimension') : tool === 'corner' ? t('hintCorner') : tool === 'calibrate' ? t('calibrateHint') : null;
   const cursor = tool === 'pan' || inter.current?.kind === 'pan' ? 'grab' : tool === 'select' ? (hover?.hit ? (hover.hit.type === 'room' || hover.hit.type === 'furniture' || hover.hit.type === 'wall' ? 'move' : 'pointer') : 'default') : 'crosshair';
 
   const menuItems = (() => {

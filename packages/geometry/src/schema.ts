@@ -11,6 +11,8 @@ export const FloorSchema = z.object({
   walls: z.record(z.string(), z.object({
     id, a: id, b: id, thickness: z.number().positive(), height: z.number().positive().nullable(), exterior: z.boolean(),
     exteriorManual: z.boolean(), material: z.string(), standalone: z.boolean(),
+    kind: z.enum(['solid', 'railing']).default('solid'),
+    railingStyle: z.enum(['bars', 'glass', 'panel']).default('bars'),
   })),
   rooms: z.record(z.string(), z.object({
     id, name: z.string(), vertexIds: z.array(id).min(3), height: z.number().positive(),
@@ -52,7 +54,14 @@ export const ProjectSchema = z.object({
 
 /** Upgrade projects saved by older versions (adds fields introduced later). */
 export function migrateProject(p: Project): Project {
-  return { ...p, assets: p.assets ?? {}, floors: p.floors.map((f) => (f.ceilingDrops ? f : { ...f, ceilingDrops: {} })) };
+  return {
+    ...p, assets: p.assets ?? {},
+    floors: p.floors.map((f) => ({
+      ...f,
+      ceilingDrops: f.ceilingDrops ?? {},
+      walls: Object.fromEntries(Object.entries(f.walls).map(([k, w]) => [k, { ...w, kind: w.kind ?? 'solid', railingStyle: w.railingStyle ?? 'bars' }])),
+    })),
+  };
 }
 
 /** Parse + structurally validate + geometrically validate a project (e.g. JSON import). */

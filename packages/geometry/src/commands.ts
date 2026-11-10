@@ -3,11 +3,11 @@
  * (structural copy) or throws GeometryError — it never returns corrupted geometry.
  * Undo/redo is implemented in the app by keeping before/after snapshots of each command.
  */
-import type { CeilingDrop, Floor, Furniture, ID, Opening, Room, Vec2, Wall } from '../../shared-types/src/index';
+import type { CeilingDrop, Floor, Furniture, ID, Opening, RailingStyle, Room, Vec2, Wall, WallKind } from '../../shared-types/src/index';
 import { GeometryError } from '../../shared-types/src/index';
 import { add, cleanPt, dist, dot, norm, perp, projectOnSegment, rotate, samePoint, scale, sub, MERGE_TOL, clean, segmentsProperlyIntersect } from './vec';
 import { centroid, pointInPolygon, polygonsOverlap, signedArea, validatePolygon, bbox, interiorPoint } from './polygon';
-import { edgeKey, furnitureCorners, openingGeometry, pt, roomPoints, uid, wallEnds, wallLength } from './model';
+import { DEFAULT_RAILING_HEIGHT, edgeKey, furnitureCorners, openingGeometry, pt, roomPoints, uid, wallEnds, wallHeight, wallLength } from './model';
 
 const fail = (code: string, msg: string): never => { throw new GeometryError(code, msg); };
 const copy = <T>(x: T): T => structuredClone(x);
@@ -33,7 +33,7 @@ function collectEdges(f: Floor): Map<string, EdgeInfo> {
 }
 
 function defaultWall(f: Floor, a: ID, b: ID, exterior: boolean): Wall {
-  return { id: uid(), a, b, thickness: f.defaultWallThickness, height: null, exterior, exteriorManual: false, material: 'plaster', standalone: false };
+  return { id: uid(), a, b, thickness: f.defaultWallThickness, height: null, exterior, exteriorManual: false, material: 'plaster', standalone: false, kind: 'solid', railingStyle: 'bars' };
 }
 
 /**
@@ -68,7 +68,11 @@ export function finalize(prev: Floor, next: Floor, beforeValidate?: (f: Floor) =
       return projectOnSegment(A, pa, pb).distance < MERGE_TOL && projectOnSegment(B, pa, pb).distance < MERGE_TOL;
     });
     const nw = defaultWall(next, e.a, e.b, exterior);
-    if (parent) { nw.thickness = parent.thickness; nw.height = parent.height; nw.material = parent.material; if (parent.exteriorManual) { nw.exterior = parent.exterior; nw.exteriorManual = true; } }
+    if (parent) {
+      nw.thickness = parent.thickness; nw.height = parent.height; nw.material = parent.material;
+      nw.kind = parent.kind; nw.railingStyle = parent.railingStyle;
+      if (parent.exteriorManual) { nw.exterior = parent.exterior; nw.exteriorManual = true; }
+    }
     walls[nw.id] = nw;
   }
 
@@ -119,11 +123,16 @@ export function validateFloor(f: Floor): void {
   for (const w of Object.values(f.walls)) {
     if (!(w.thickness > 0 && w.thickness <= 2)) fail('thickness', 'Wall thickness must be between 0 and 2 m.');
     if (wallLength(f, w) < 0.01) fail('short-wall', 'A wall would become shorter than 1 cm.');
+    if (w.kind === 'railing') {
+      const h = wallHeight(f, w);
+      if (!(h >= 0.2 && h <= 2)) fail('railing-height', 'Railing height must be between 0.20 m and 2.00 m.');
+    }
   }
   const perWall = new Map<ID, Opening[]>();
   for (const o of Object.values(f.openings)) {
     const w = f.walls[o.wallId];
     if (!w) fail('orphan-opening', 'An opening lost its wall.');
+    if (w.kind === 'railing') fail('railing-opening', 'A railing cannot hold a door or window. Remove it, or change the railing back to a wall.');
     const L = wallLength(f, w);
     if (!(o.width > 0) || !(o.height > 0) || o.sill < 0) fail('opening-size', 'Opening size must be positive.');
     if (o.t - o.width / 2 < -1e-6 || o.t + o.width / 2 > L + 1e-6) fail('opening-fit', `A ${o.kind} (${(o.width * 100).toFixed(0)} cm) no longer fits on its wall (${L.toFixed(2)} m).`);
@@ -416,13 +425,29 @@ export function setWallAngle(prev: Floor, wallId: ID, deg: number): Floor {
   return moveVertex(prev, w.b, { x: a.x + Math.cos(r) * L, y: a.y + Math.sin(r) * L });
 }
 
-export function updateWall(prev: Floor, wallId: ID, patch: Partial<Pick<Wall, 'thickness' | 'height' | 'exterior' | 'material'>>): Floor {
-  if (!prev.walls[wallId]) fail('missing', 'Wall not found');
+export function updateWall(prev: Floor, wallId: ID, patch: Partial<Pick<Wall, 'thickness' | 'height' | 'exterior' | 'material' | 'kind' | 'railingStyle'>>): Floor {
+  const cur = prev.walls[wallId];
+  if (!cur) fail('missing', 'Wall not found');
   const f = copy(prev);
   const w = { ...f.walls[wallId], ...patch };
   if ('exterior' in patch) w.exteriorManual = true;
+  if (patch.kind && patch.kind !== cur.kind) {
+    // switching type: give the wall a sensible height for its new kind
+    if (patch.kind === 'railing') {
+      if (Object.values(f.openings).some((o) => o.wallId === wallId)) fail('railing-opening', 'Remove the doors/windows on this wall before turning it into a railing.');
+      if (patch.height === undefined) w.height = cur.height != null && cur.height <= 2 ? cur.height : DEFAULT_RAILING_HEIGHT;
+      if (patch.thickness === undefined) w.thickness = Math.min(cur.thickness, 0.12);
+    } else {
+      if (patch.height === undefined) w.height = null;
+      if (patch.thickness === undefined && w.thickness < f.defaultWallThickness) w.thickness = f.defaultWallThickness;
+    }
+  }
   f.walls[wallId] = w;
   return finalize(prev, f);
+}
+
+export function setWallKind(prev: Floor, wallId: ID, kind: WallKind, railingStyle?: RailingStyle): Floor {
+  return updateWall(prev, wallId, railingStyle ? { kind, railingStyle } : { kind });
 }
 
 /** Split a wall by inserting a corner at distance t from vertex a. */
@@ -475,7 +500,7 @@ export function mergeWallsAt(prev: Floor, vid: ID): Floor {
   return deleteCorner(prev, vid);
 }
 
-export function addPartitionWall(prev: Floor, p1: Vec2, p2: Vec2, thickness = 0.1): { floor: Floor; wallId: ID } {
+export function addPartitionWall(prev: Floor, p1: Vec2, p2: Vec2, thickness = 0.1, opts: { kind?: WallKind; railingStyle?: RailingStyle; height?: number | null } = {}): { floor: Floor; wallId: ID } {
   if (dist(p1, p2) < 0.05) fail('length', 'Wall is too short.');
   const f = copy(prev);
   const idFor = (p: Vec2) => {
@@ -486,7 +511,13 @@ export function addPartitionWall(prev: Floor, p1: Vec2, p2: Vec2, thickness = 0.
     return id;
   };
   const a = idFor(p1), b = idFor(p2);
-  const w: Wall = { id: uid(), a, b, thickness, height: null, exterior: false, exteriorManual: false, material: 'plaster', standalone: true };
+  const kind = opts.kind ?? 'solid';
+  const w: Wall = {
+    id: uid(), a, b, thickness: kind === 'railing' ? Math.min(thickness, 0.08) : thickness,
+    height: opts.height ?? (kind === 'railing' ? DEFAULT_RAILING_HEIGHT : null),
+    exterior: false, exteriorManual: false, material: kind === 'railing' ? 'steel' : 'plaster', standalone: true,
+    kind, railingStyle: opts.railingStyle ?? 'bars',
+  };
   f.walls[w.id] = w;
   return { floor: finalize(prev, f), wallId: w.id };
 }

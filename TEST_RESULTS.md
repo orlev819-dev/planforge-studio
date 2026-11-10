@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Unit tests (geometry, export, laser, ceilings, model import) | `npm test` | ✅ 39 / 39 passed |
+| Unit tests (geometry, export, laser, ceilings, model import, railings) | `npm test` | ✅ 46 / 46 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 15 / 15 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 16 / 16 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -34,6 +34,10 @@ E2E (1): draw zone with the tool → default 30 cm below ceiling → set 2.35 m 
 ## Model import tests
 Unit (5): binary = ASCII STL · OBJ quads / negative indices / v/vt/vn · mm→m, Z-up→Y-up, centring, hull · placed model scaled + rotated in 3D, 2D footprint, GLB export, JSON round-trip · unit auto-detect.
 E2E (1): upload STL (mm) → detected 0.600 × 0.400 × 0.750 m → place → 3D part → persists after reload.
+
+## Railing tests
+Unit (7): standalone railing defaults (1.05 m, thin, bars) · converting a room wall keeps the area, reports railing length, removes that side from paintable wall area, and converts back to a full wall · doors/windows refused both ways · height validation 0.20–2.00 m and kind preserved through geometry edits · 2D has no solid wall body and differs per style (+ DXF/SVG) · 3D is open posts/rail capped at railing height, 3 solid walls remain, glass style adds a translucent panel · old projects without `kind` migrate to solid.
+E2E (1): convert a room wall from the room panel → railing length 3.85 m → wall panel shows railing type/height → glass style + 1.10 m → 3D part count grows → draw a standalone railing with the tool → door refused with a message → survives reload.
 
 ## iPad tests (6, Chromium with touch + coarse pointer)
 Portrait: icon rail, ≥44 px tools, drawer hidden → opens on selection → closes, 16 px inputs · tap 4 corners + Finish → 6.00 m² · typed length + direction buttons → 13.02 m² · long-press context menu, one-finger pan (exact offset, geometry untouched) · 3D walk pad. Landscape: docked panel, apple-touch-icon PNG + home-screen meta.

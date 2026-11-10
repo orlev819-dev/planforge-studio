@@ -22,6 +22,8 @@ export interface RoomMetrics {
   windows: number;
   edgeLengths: number[];
   labelPoint: Vec2;
+  /** length of the room's edges that are railings rather than solid walls */
+  railingLength: number;
   /** lowered-ceiling (soffit) zones inside the room */
   loweredArea: number;
   /** vertical soffit faces to finish/paint (m²) */
@@ -44,6 +46,10 @@ export function roomMetrics(f: Floor, r: Room): RoomMetrics {
   const openings: Opening[] = [];
   for (const w of walls) if (w) for (const o of Object.values(f.openings)) if (o.wallId === w.id) openings.push(o);
   const openingArea = openings.reduce((s, o) => s + o.width * Math.max(0, Math.min(o.height, r.height - o.sill)), 0);
+  // railing edges are open: they are not a paintable wall surface
+  const netEdge = (i: number) => (inset ? dist(inset[i], inset[(i + 1) % inset.length]) : dist(pts[i], pts[(i + 1) % pts.length]));
+  let railingLength = 0;
+  walls.forEach((w, i) => { if (w?.kind === 'railing') railingLength += netEdge(i); });
   // lowered ceilings: volume above the soffit is not room volume
   const net = inset ?? pts;
   let loweredArea = 0, loweredVolume = 0, soffitSideArea = 0;
@@ -63,9 +69,9 @@ export function roomMetrics(f: Floor, r: Room): RoomMetrics {
     }
   }
   return {
-    loweredArea, soffitSideArea,
+    loweredArea, soffitSideArea, railingLength,
     roomId: r.id, name: r.name, grossArea, netArea, perimeter: perimeter(pts), netPerimeter, height: r.height,
-    volume: netArea * r.height - loweredVolume, ceilingArea: netArea, wallArea: Math.max(0, netPerimeter * r.height - openingArea), openingArea,
+    volume: netArea * r.height - loweredVolume, ceilingArea: netArea, wallArea: Math.max(0, (netPerimeter - railingLength) * r.height - openingArea), openingArea,
     doors: openings.filter((o) => o.kind === 'door').length, windows: openings.filter((o) => o.kind === 'window').length,
     edgeLengths: pts.map((p, i) => dist(p, pts[(i + 1) % pts.length])), labelPoint: interiorPoint(pts),
   };

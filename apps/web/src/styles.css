@@ -169,3 +169,6 @@ table.report { border-collapse: collapse; width: 100%; margin-top: 12px; backgro
   .sidebar .seg.full { margin-inline-end: 52px; }
 }
 @media (pointer: coarse) and (max-width: 700px) { .editor-main { grid-template-columns: 64px 1fr; } .toolbar .tl { display: none; } }
+.wall-row { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: end; }
+.wall-row .icon-btn { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 6px; }
+.wall-row .icon-btn.on { background: #1864ab; color: #fff; border-color: #1864ab; }
