@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
     const written: number[][] = [];
     ch.startNotifications = async () => ch;
     ch.writeValueWithoutResponse = async (d: Uint8Array) => { written.push([...d]); };
-    const server: any = { connected: true, connect: async () => server, disconnect() {}, getPrimaryService: async () => ({ getCharacteristic: async () => ch }) };
+    const server: any = { connected: true, connect: async () => { if ((window as any).__glmFail > 0) { (window as any).__glmFail--; throw Object.assign(new Error('Connection attempt failed.'), { name: 'NetworkError' }); } return server; }, disconnect() {}, getPrimaryService: async () => ({ getCharacteristic: async () => ch }) };
     const device: any = Object.assign(new EventTarget(), { id: 'sim', name: 'GLM50-27 CG (simulated)', gatt: server });
     (navigator as any).bluetooth = { requestDevice: async () => device };
     (window as any).__mockGlm = {
@@ -55,4 +55,30 @@ test('laser reading fills focused length field and sets selected wall length', a
   await expect(page.getByTestId('wall-length')).toHaveValue('2.8');
   await page.getByTestId('laser-open').click();
   await expect(page.getByTestId('laser-last')).toContainText('2.800 m');
+});
+
+test('first GATT connect fails (Windows behaviour) -> automatic retry connects', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => { (window as any).__glmFail = 2; });
+  await page.getByTestId('new-project').click();
+  await page.getByTestId('project-name-input').fill('Retry');
+  await page.getByTestId('project-submit').click();
+  await page.getByTestId('laser-open').click();
+  await page.getByTestId('laser-connect').click();
+  await expect(page.getByTestId('laser-status')).toContainText('Connected', { timeout: 10000 });
+  await expect(page.getByTestId('laser-log')).toContainText('attempt 1 failed');
+  await expect(page.getByTestId('laser-log')).toContainText('enable command sent');
+});
+
+test('all connect attempts fail -> error with tips and log', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => { (window as any).__glmFail = 99; });
+  await page.getByTestId('new-project').click();
+  await page.getByTestId('project-name-input').fill('Fail');
+  await page.getByTestId('project-submit').click();
+  await page.getByTestId('laser-open').click();
+  await page.getByTestId('laser-connect').click();
+  await expect(page.getByTestId('laser-status')).toContainText('Error', { timeout: 15000 });
+  await expect(page.getByTestId('laser-tips')).toContainText('MeasureOn');
+  await expect(page.getByTestId('laser-log')).toContainText('attempt 4 failed');
 });

@@ -10,8 +10,8 @@ import { BoschGlmConnection, type BtApi, type LaserStatus } from '../../../packa
 import { setWallLength, toUnit, formatLength } from '../../../packages/geometry/src/index';
 import { currentFloor, editFloor, getState, toast } from './store';
 
-interface LaserState { status: LaserStatus; detail: string; device: string | null; last: { m: number; at: number; target: string } | null }
-let st: LaserState = { status: typeof navigator !== 'undefined' && 'bluetooth' in navigator ? 'idle' : 'unsupported', detail: '', device: null, last: null };
+interface LaserState { status: LaserStatus; detail: string; device: string | null; last: { m: number; at: number; target: string } | null; log: string[] }
+let st: LaserState = { log: [], status: typeof navigator !== 'undefined' && 'bluetooth' in navigator ? 'idle' : 'unsupported', detail: '', device: null, last: null };
 const subs = new Set<() => void>();
 const set = (p: Partial<LaserState>) => { st = { ...st, ...p }; subs.forEach((f) => f()); };
 export const useLaser = () => useSyncExternalStore((f) => { subs.add(f); return () => subs.delete(f); }, () => st, () => st);
@@ -47,7 +47,9 @@ export async function connectLaser() {
   const bt = (navigator as unknown as { bluetooth?: BtApi }).bluetooth;
   if (!bt) { set({ status: 'unsupported' }); return; }
   conn?.disconnect();
+  set({ log: [] });
   conn = new BoschGlmConnection(bt, {
+    onLog: (msg) => set({ log: [...st.log.slice(-20), `${new Date().toLocaleTimeString()} ${msg}`] }),
     onStatus: (status, detail) => set({ status, detail: detail ?? '', device: status === 'connected' ? detail ?? 'GLM' : status === 'idle' ? null : st.device }),
     onReading: (m) => {
       const target = applyReading(m);

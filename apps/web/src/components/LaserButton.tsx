@@ -24,6 +24,8 @@ export function LaserButton() {
               ? <button className="btn" onClick={disconnectLaser}>{t('disconnect')}</button>
               : <button className="btn primary" data-testid="laser-connect" disabled={l.status === 'connecting'} onClick={() => void connectLaser()}>{t('connect')}</button>}
           {l.last && <p data-testid="laser-last">{t('lastReading')}: <b>{formatLength(l.last.m, unit, 3)}</b> → {t(`laserTarget_${l.last.target}` as 'laserTarget_none')}</p>}
+          {l.status === 'error' && <ul className="hint-text" data-testid="laser-tips">{t('laserTips').split('|').map((x) => <li key={x}>{x}</li>)}</ul>}
+          {l.log.length > 0 && <details open={l.status === 'error'}><summary className="sm">Log</summary><pre className="laser-log" data-testid="laser-log">{l.log.join('\n')}</pre></details>}
           <p className="hint-text">{t('laserHow')}</p>
           <p className="hint-text">{t('laserNote')}</p>
         </div>

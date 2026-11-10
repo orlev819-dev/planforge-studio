@@ -33,6 +33,8 @@ export type LaserStatus = 'unsupported' | 'idle' | 'connecting' | 'connected' | 
 export interface GlmEvents {
   onStatus(s: LaserStatus, detail?: string): void;
   onReading(meters: number): void;
+  /** diagnostic trace of connection steps (shown in the UI) */
+  onLog?(msg: string): void;
 }
 
 /** Web Bluetooth driver for Bosch GLM-C laser measures with automatic reconnect. */
@@ -43,8 +45,10 @@ export class BoschGlmConnection {
   private onChange = (e: Event) => {
     const dv = (e.target as BtChar).value;
     if (!dv) return;
-    const m = parseBoschGlmPacket(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
+    const bytes = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+    const m = parseBoschGlmPacket(bytes);
     if (m != null) this.ev.onReading(m);
+    else this.log(`packet ignored: ${[...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ')}`);
   };
   private onDisconnect = () => { void this.handleDisconnect(); };
 
@@ -59,8 +63,19 @@ export class BoschGlmConnection {
         optionalServices: [BOSCH_GLM_SERVICE],
       });
       this.device = device;
+      this.log(`device selected: ${device.name ?? device.id}`);
       device.addEventListener('gattserverdisconnected', this.onDisconnect);
-      await this.setup();
+      // Windows/Chrome often fail the first GATT connect: retry with backoff
+      let last: unknown = null;
+      for (let i = 1; i <= 4; i++) {
+        try { this.log(`GATT connect attempt ${i}/4`); await this.setup(); last = null; break; }
+        catch (e) {
+          last = e; this.log(`attempt ${i} failed: ${(e as Error).name ?? ''} ${(e as Error).message ?? e}`);
+          try { device.gatt?.disconnect(); } catch { /* ignore */ }
+          await new Promise((r) => setTimeout(r, 600 * i));
+        }
+      }
+      if (last) throw last;
       this.ev.onStatus('connected', device.name ?? 'GLM');
     } catch (e) {
       const msg = (e as Error).message || String(e);
@@ -69,15 +84,22 @@ export class BoschGlmConnection {
     }
   }
 
+  private log(m: string) { this.ev.onLog?.(m); }
+
   private async setup() {
     const server = await this.device!.gatt!.connect();
+    this.log('GATT connected');
     const svc = await server.getPrimaryService(BOSCH_GLM_SERVICE);
+    this.log('Bosch service found');
     const ch = await svc.getCharacteristic(BOSCH_GLM_CHARACTERISTIC);
+    this.log('measurement characteristic found');
     await ch.startNotifications();
+    this.log('indications enabled');
     ch.removeEventListener('characteristicvaluechanged', this.onChange);
     ch.addEventListener('characteristicvaluechanged', this.onChange);
     if (ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(BOSCH_GLM_ENABLE);
     else await ch.writeValue(BOSCH_GLM_ENABLE);
+    this.log('enable command sent - ready, measure on the device');
     this.char = ch;
   }
 
