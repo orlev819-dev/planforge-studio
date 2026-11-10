@@ -32,8 +32,8 @@ Playwright needs a Chromium: `npx playwright install chromium`, or set `CHROME_P
 ## Live site (GitHub Pages)
 
 https://orlev819-dev.github.io/planforge-studio/ is served over HTTPS, so Web Bluetooth works there, including in the Bluefy browser on iOS.
-Deploy: `bash scripts/deploy-pages.sh` builds the app and force-pushes the static site to `orlev819-dev/planforge-studio` (`main`, root). Pages rebuilds within about two minutes.
-The repository holds only the built site. Source lives in this monorepo.
+Repository: https://github.com/orlev819-dev/planforge-studio. Source is on `main`, and the built site is on `gh-pages`, which GitHub Pages serves.
+Publish: `bash scripts/publish.sh` pushes the source to `main`, then builds and force-pushes the site to `gh-pages`. Pages updates within about two minutes.
 
 Local network server (Windows, no install needed): `server/start-server.bat`, which runs a PowerShell static server on port 8080.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the web app and publish it to GitHub Pages (repo root of the `main` branch of the Pages repo).
+# Build the web app and publish it to GitHub Pages (`gh-pages` branch of the repo; source is on `main`).
 set -euo pipefail
 REPO="${PAGES_REPO:-orlev819-dev/planforge-studio}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -23,5 +23,5 @@ git -c user.name="${GIT_AUTHOR_NAME:-PlanForge}" -c user.email="${GIT_AUTHOR_EMA
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01GNuFAyWp26jvzzzgaUTMdX"
-git push -f "https://github.com/$REPO.git" main
+git push -f "https://github.com/$REPO.git" main:gh-pages
 echo "deployed $REV to $REPO"
