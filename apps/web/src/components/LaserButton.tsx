@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLaser, connectLaser, disconnectLaser, armLaserField, setLaserAdvance, aimLabel } from '../laser';
+import { useLaser, connectLaser, disconnectLaser, armLaserField, setLaserAdvance, aimLabel, measureNow } from '../laser';
 import { useStore } from '../store';
 import { formatLength } from '../../../../packages/geometry/src/index';
 import { useT } from '../i18n';
@@ -51,8 +51,12 @@ export function LaserButton() {
           {l.status === 'unsupported'
             ? <p className="hint-text">{typeof window !== 'undefined' && !window.isSecureContext ? t('laserInsecure') : t('laserUnsupported')}</p>
             : l.status === 'connected' || l.status === 'reconnecting'
-              ? <button className="btn" onClick={disconnectLaser}>{t('disconnect')}</button>
+              ? <div className="row">
+                  <button className="btn primary" data-testid="laser-measure" onClick={() => void measureNow()}>{t('measureNow')}</button>
+                  <button className="btn" onClick={disconnectLaser}>{t('disconnect')}</button>
+                </div>
               : <button className="btn primary" data-testid="laser-connect" disabled={l.status === 'connecting'} onClick={() => void connectLaser()}>{t('connect')}</button>}
+          {l.status === 'connected' && <p className="hint-text" data-testid="laser-beats">{l.beats > 0 ? t('laserAlive').replace('{n}', String(l.beats)) : t('laserNoBeats')}</p>}
           <p data-testid="laser-aim">
             {t('laserNext')}: <b>{aim || t('laserAimAuto')}</b>
             {l.armed && <button className="btn sm" data-testid="laser-aim-clear" onClick={() => armLaserField(null)}>{t('release')}</button>}

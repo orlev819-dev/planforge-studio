@@ -20,11 +20,13 @@ interface LaserState {
   armed: string | null; armedLabel: string;
   /** move the aim to the next wall of the room after each reading */
   advance: boolean;
+  /** heartbeats received: the meter talks to us even when no measurement arrives */
+  beats: number;
 }
 const storedAdvance = () => { try { return localStorage.getItem('pf-laser-advance') !== '0'; } catch { return true; } };
 let st: LaserState = {
   log: [], status: typeof navigator !== 'undefined' && 'bluetooth' in navigator ? 'idle' : 'unsupported', detail: '', device: null, last: null,
-  armed: null, armedLabel: '', advance: typeof localStorage !== 'undefined' ? storedAdvance() : true,
+  armed: null, armedLabel: '', advance: typeof localStorage !== 'undefined' ? storedAdvance() : true, beats: 0,
 };
 const subs = new Set<() => void>();
 const set = (p: Partial<LaserState>) => { st = { ...st, ...p }; subs.forEach((f) => f()); };
@@ -140,9 +142,10 @@ export async function connectLaser() {
   const bt = (navigator as unknown as { bluetooth?: BtApi }).bluetooth;
   if (!bt) { set({ status: 'unsupported' }); return; }
   conn?.disconnect();
-  set({ log: [] });
+  set({ log: [], beats: 0 });
   conn = new BoschGlmConnection(bt, {
     onLog: (msg) => set({ log: [...st.log.slice(-20), `${new Date().toLocaleTimeString()} ${msg}`] }),
+    onHeartbeat: (n) => set({ beats: n }),
     onStatus: (status, detail) => set({ status, detail: detail ?? '', device: status === 'connected' ? detail ?? 'GLM' : status === 'idle' ? null : st.device }),
     onReading: (m) => {
       const { target, label } = applyReading(m);
@@ -154,4 +157,10 @@ export async function connectLaser() {
   });
   await conn.connect();
 }
-export function disconnectLaser() { conn?.disconnect(); conn = null; }
+export function disconnectLaser() { conn?.disconnect(); conn = null; set({ beats: 0 }); }
+
+/** take a measurement from the app, as if the meter's own button had been pressed */
+export async function measureNow() {
+  if (!conn) { toast('Connect the laser first', 'error'); return; }
+  try { await conn.measure(); } catch (e) { toast(`Measure failed: ${(e as Error).message || e}`, 'error'); }
+}

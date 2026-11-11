@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 61 / 61 passed |
+| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 65 / 65 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 24 / 24 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 25 / 25 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -34,8 +34,10 @@ E2E (2): tap/click 4 corners back onto the first → room panel with 14.00 m², 
 one undo removes room + closing wall, redo restores → 3 walls onto the room's right-hand wall → second room 7.00 m²,
 7 walls, 1 interior → an open chain stays walls → both rooms survive a reload. Railing ring → 4.50 m² balcony.
 
-## Laser unit tests (3)
-Packet parser (valid / malformed / NaN / out-of-range — synthetic fixtures) · driver against a mock GATT: subscribe, enable command `C0 55 02 01 00 1A`, reading emitted, disconnect.
+## Laser unit tests (7)
+Checksum and command frames reproduce the published captures byte for byte (`C0 55 02 01 00 1A`, `C0 56 01 00 1E`, `C0 40 00 EE`, heartbeat CRC `3A`) · the two captured measurement frames decode to 1.8251 m and 1.5144 m · heartbeats, laser-state and failure events, truncated frames, NaN, negative and out-of-range values are all rejected · frame parser: two frames in one indication, one frame split over two, wrong checksum reported not used, replies (status | length | data | CRC) · driver against a mock GATT: subscribe, status request written **with response**, heartbeat counted without a reading, results emitted (kinds 06 and 0A), Measure sends `C0 56 01 00 1E`, disconnect · the status reply's current display value is not emitted as a new measurement · a write that needs a response falls back to write-without-response.
+
+E2E, measuring (1): heartbeats show "Link alive" without touching the plan → **Measure** writes `C0 56 01 00 1E` → the pushed result 2.750 m lands in Wall 1 and is named in the log.
 
 E2E, aiming (1): connect with a room selected → the panel shows the next reading goes to Wall 1 → reading with no field focused fills Wall 1 and the aim moves to Wall 2 → second reading gives 13.02 m² → tap Wall 4, open the panel (focus lost), switch the advance off → two readings both land on Wall 4 → in Interior mode a 3.72 m reading sets the inside face and the centerline follows (3.87 m).
 

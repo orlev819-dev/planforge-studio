@@ -6,14 +6,24 @@ test.beforeEach(async ({ page }) => {
     const ch: any = new EventTarget();
     const written: number[][] = [];
     ch.startNotifications = async () => ch;
-    ch.writeValueWithoutResponse = async (d: Uint8Array) => { written.push([...d]); };
+    ch.writeValue = async (d: Uint8Array) => { written.push([...d]); };
     const server: any = { connected: true, connect: async () => { if ((window as any).__glmFail > 0) { (window as any).__glmFail--; throw Object.assign(new Error('Connection attempt failed.'), { name: 'NetworkError' }); } return server; }, disconnect() {}, getPrimaryService: async () => ({ getCharacteristic: async () => ch }) };
     const device: any = Object.assign(new EventTarget(), { id: 'sim', name: 'GLM50-27 CG (simulated)', gatt: server });
     (navigator as any).bluetooth = { requestDevice: async () => device };
     (window as any).__mockGlm = {
       written,
+      // a pushed measurement event, with the real CRC-8 (poly 0xA6, init 0xAA) the driver checks
       emit(m: number) {
-        const b = new Uint8Array(16); b.set([0xc0, 0x55, 0x10, 0x06]); new DataView(b.buffer).setFloat32(7, m, true);
+        const body = new Uint8Array(19);
+        body.set([0xc0, 0x55, 0x10, 0x06, 0x08, 0x02, 0x08]);
+        new DataView(body.buffer).setFloat32(7, m, true);
+        let c = 0xaa;
+        for (const x of body) { c ^= x; for (let i = 0; i < 8; i++) c = c & 0x80 ? ((c << 1) ^ 0xa6) & 0xff : (c << 1) & 0xff; }
+        const b = new Uint8Array([...body, c]);
+        ch.value = new DataView(b.buffer); ch.dispatchEvent(new Event('characteristicvaluechanged'));
+      },
+      heartbeat() {
+        const b = new Uint8Array([0xc0, 0x11, 0x00, 0x3a]);
         ch.value = new DataView(b.buffer); ch.dispatchEvent(new Event('characteristicvaluechanged'));
       },
     };
@@ -67,7 +77,7 @@ test('first GATT connect fails (Windows behaviour) -> automatic retry connects',
   await page.getByTestId('laser-connect').click();
   await expect(page.getByTestId('laser-status')).toContainText('Connected', { timeout: 10000 });
   await expect(page.getByTestId('laser-log')).toContainText('attempt 1 failed');
-  await expect(page.getByTestId('laser-log')).toContainText('enable command sent');
+  await expect(page.getByTestId('laser-log')).toContainText('status request c0 55 02 01 00 1a');
 });
 
 test('all connect attempts fail -> error with tips and log', async ({ page }) => {
@@ -150,4 +160,32 @@ test('readings follow the aimed wall field: by selection, after focus is lost, a
     return Object.values(f.vertices).map((v: any) => v.x);
   });
   expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(3.72 + 0.15, 6);  // centerline, not the raw reading
+});
+
+test('heartbeats show the link is alive, and Measure asks the meter for a reading', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('new-project').click();
+  await page.getByTestId('project-name-input').fill('Measure');
+  await page.getByTestId('project-submit').click();
+  await page.getByTestId('room-dialog-open').click();
+  await page.getByTestId('room-create').click();
+  await page.getByTestId('laser-open').click();
+  await page.getByTestId('laser-connect').click();
+  await expect(page.getByTestId('laser-status')).toContainText('Connected');
+
+  // the meter's heartbeat is not a measurement, but it proves the link
+  await expect(page.getByTestId('laser-beats')).toContainText('Waiting');
+  await page.evaluate(() => (window as any).__mockGlm.heartbeat());
+  await page.evaluate(() => (window as any).__mockGlm.heartbeat());
+  await expect(page.getByTestId('laser-beats')).toContainText('2 heartbeats');
+  expect(await page.evaluate(() => (window as any).__planforge.getState().project.floors[0])).toBeTruthy();
+
+  // Measure sends the button-press command; the meter answers with a pushed result
+  await page.getByTestId('laser-measure').click();
+  expect(await page.evaluate(() => (window as any).__mockGlm.written[1])).toEqual([0xc0, 0x56, 0x01, 0x00, 0x1e]);
+  await page.evaluate(() => (window as any).__mockGlm.emit(2.75));
+  await expect(page.getByTestId('laser-last')).toContainText('2.750 m');
+  await expect(page.getByTestId('laser-log')).toContainText('measurement 2.75 m');
+  await page.getByTestId('laser-open').click();
+  await expect(page.getByTestId('room-wall-0')).toHaveValue('2.75');
 });
