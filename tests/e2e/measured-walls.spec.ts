@@ -42,6 +42,20 @@ test('measured walls hold their own lengths, and release lets them move again', 
   await expect(page.getByTestId('toast')).toContainText('locked');
   await expect(page.getByTestId('room-wall-0')).toHaveValue('4.18');
 
+  // the next measurement grows into the free corner: the one held by wall 1 stays put
+  const cornerOf = async (i: number) => {
+    const f = (await state(page)).project.floors[0];
+    const r: any = Object.values(f.rooms)[0];
+    return f.vertices[r.vertexIds[i]];
+  };
+  const held = await cornerOf(0);
+  await page.getByTestId('room-wall-3').fill('3.9');
+  await page.getByTestId('room-wall-3').press('Enter');
+  const after = await cornerOf(0);
+  expect(after.x).toBeCloseTo(held.x, 6);
+  expect(after.y).toBeCloseTo(held.y, 6);
+  expect((await lengths(page))[0]).toBeCloseTo(4.18, 3);
+
   // every wall can hold its own measurement
   await page.getByTestId('room-wall-2-lock').click();
   await page.getByTestId('room-wall-1').fill('3.46');

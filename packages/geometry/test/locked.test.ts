@@ -112,3 +112,27 @@ test('a lock does not block anything else about the wall', () => {
   assert.equal(thicker.walls[id].locked, true);
   close(wallLength(thicker, thicker.walls[id]), 4);
 });
+
+test('after one measurement, the next one grows into the free corner', () => {
+  const { floor, roomId } = room();
+  const v = (f: Floor, i: number) => f.vertices[f.rooms[roomId].vertexIds[i]];
+  // the right-hand wall is measured first, so the corner it holds must not move
+  let f = setWallLength(floor, edge(floor, roomId, 1).id, 3.42, 'a', { lock: true });
+  const rightTop = { ...v(f, 2) }, rightBottom = { ...v(f, 1) }, leftBottom = { ...v(f, 0) };
+  // now measure the bottom wall, which meets that locked wall at its second corner
+  f = setWallLength(f, edge(f, roomId, 0).id, 4.37, 'auto', { lock: true });
+  close(len(f, roomId, 0), 4.37);
+  close(len(f, roomId, 1), 3.42);               // the measurement taken first still holds
+  close(v(f, 1).x, rightBottom.x); close(v(f, 1).y, rightBottom.y);  // the held corner did not move
+  close(v(f, 2).x, rightTop.x); close(v(f, 2).y, rightTop.y);
+  assert.ok(Math.abs(v(f, 0).x - leftBottom.x) > 0.3);               // the free corner took the change
+});
+
+test('with nothing measured yet, the first corner of the edge stays as before', () => {
+  const { floor, roomId } = room();
+  const v = (f: Floor, i: number) => f.vertices[f.rooms[roomId].vertexIds[i]];
+  const first = { ...v(floor, 0) };
+  const f = setWallLength(floor, edge(floor, roomId, 0).id, 4.4, 'auto');
+  close(v(f, 0).x, first.x); close(v(f, 0).y, first.y);
+  close(len(f, roomId, 0), 4.4);
+});

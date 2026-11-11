@@ -410,12 +410,27 @@ export function moveWall(prev: Floor, wallId: ID, offset: number): Floor {
  * direction. Neighbouring walls that are perpendicular at the moving end are translated with it, so
  * rectangles stay rectangles and shared walls stay shared.
  */
-export function setWallLength(prev: Floor, wallId: ID, length: number, anchor: 'a' | 'b' = 'a', opts: { lock?: boolean } = {}): Floor {
+/**
+ * Which end of a wall should stay put. 'auto' keeps the corner that a wall measured earlier already
+ * holds, so the room grows into the side that is still free: measure one wall, and the next
+ * measurement can only move the corner that nothing is holding.
+ */
+export function anchorEnd(f: Floor, wallId: ID, fallback: 'a' | 'b' = 'a'): 'a' | 'b' {
+  const w = f.walls[wallId];
+  if (!w) return fallback;
+  const held = (v: ID) => Object.values(f.walls).some((x) => x.locked && x.id !== wallId && (x.a === v || x.b === v));
+  const a = held(w.a), b = held(w.b);
+  if (a === b) return fallback; // both ends held, or neither: nothing to choose between
+  return a ? 'a' : 'b';
+}
+
+export function setWallLength(prev: Floor, wallId: ID, length: number, anchor: 'a' | 'b' | 'auto' = 'a', opts: { lock?: boolean } = {}): Floor {
   const w = prev.walls[wallId];
   if (!w) fail('missing', 'Wall not found');
   if (!(length >= 0.05)) fail('length', 'Wall length must be at least 5 cm.');
   if (w.locked) fail('locked', `This wall is locked at ${wallLength(prev, w).toFixed(2)} m (measured). Release it to change it.`);
-  const fixedId = anchor === 'a' ? w.a : w.b, movingId = anchor === 'a' ? w.b : w.a;
+  const end = anchor === 'auto' ? anchorEnd(prev, wallId) : anchor;
+  const fixedId = end === 'a' ? w.a : w.b, movingId = end === 'a' ? w.b : w.a;
   const F = pt(prev, fixedId), M = pt(prev, movingId);
   const dir = norm(sub(M, F));
   const delta = sub(add(F, scale(dir, length)), M);
@@ -506,7 +521,7 @@ export function setWallLocked(prev: Floor, wallId: ID, locked: boolean): Floor {
  * unchanged by setWallLength, so one pass is exact for orthogonal rooms — angled rooms converge in a
  * couple of iterations. The edge's first corner stays put (or its second with anchor 'b').
  */
-export function setRoomEdgeInteriorLength(prev: Floor, roomId: ID, edgeIndex: number, target: number, anchor: 'a' | 'b' = 'a', opts: { lock?: boolean } = {}): Floor {
+export function setRoomEdgeInteriorLength(prev: Floor, roomId: ID, edgeIndex: number, target: number, anchor: 'a' | 'b' | 'auto' = 'a', opts: { lock?: boolean } = {}): Floor {
   const room0 = prev.rooms[roomId];
   if (!room0) fail('missing', 'Room not found');
   if (!(edgeIndex >= 0 && edgeIndex < room0.vertexIds.length)) fail('edge', 'That wall is not part of the room.');
@@ -521,7 +536,10 @@ export function setRoomEdgeInteriorLength(prev: Floor, roomId: ID, edgeIndex: nu
     if (!(cur > 0)) fail('thickness', 'The walls are too thick for this room.');
     const delta = target - cur;
     if (Math.abs(delta) < 1e-6) break;
-    const startVertex = room.vertexIds[anchor === 'a' ? edgeIndex : (edgeIndex + 1) % room.vertexIds.length];
+    const end = anchor === 'auto' ? anchorEnd(f, w.id, w.a === room.vertexIds[edgeIndex] ? 'a' : 'b') : anchor;
+    const startVertex = anchor === 'auto'
+      ? (end === 'a' ? w.a : w.b)
+      : room.vertexIds[end === 'a' ? edgeIndex : (edgeIndex + 1) % room.vertexIds.length];
     f = setWallLength(f, w.id, wallLength(f, w) + delta, w.a === startVertex ? 'a' : 'b');
   }
   if (opts.lock) {
