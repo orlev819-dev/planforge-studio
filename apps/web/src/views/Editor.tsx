@@ -143,7 +143,7 @@ export function Editor() {
         <aside className="sidebar" data-testid="sidebar">
           <button className="icon-btn drawer-close" data-testid="drawer-close" onClick={() => setDrawerOpen(false)} aria-label={t('close')}><Icon name="close" size={18} /></button>
           <div className="seg full">
-            <button className={side === 'props' ? 'on' : ''} onClick={() => setSide('props')}>{t('inspector')}</button>
+            <button className={side === 'props' ? 'on' : ''} data-testid="tab-props" onClick={() => setSide('props')}>{t('inspector')}</button>
             <button className={side === 'library' ? 'on' : ''} data-testid="tab-library" onClick={() => setSide('library')}>{t('furniture')}</button>
           </div>
           {side === 'props' ? <Inspector /> : <LibraryPanel compact />}

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Viewer3D, type WallMode } from '../../../../packages/renderer-3d/src/webgl';
+import { Viewer3D, type WallMode, type SceneLight } from '../../../../packages/renderer-3d/src/webgl';
 import { buildFloorMesh, type MeshPart } from '../../../../packages/renderer-3d/src/mesh';
 import type { Floor, ModelAsset } from '../../../../packages/shared-types/src/index';
-import { select, useStore, currentFloor } from '../store';
+import { select, toast, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
 
 /** Per-floor mesh cache: floors are immutable, so identity tells us when to rebuild. */
@@ -30,6 +30,9 @@ export function Viewer3DView() {
   const [ceilings, setCeilings] = useState(false);
   const [walls, setWalls] = useState<WallMode>('solid');
   const [walk, setWalk] = useState(false);
+  const [light, setLight] = useState<SceneLight>('day');
+  const [intensity, setIntensity] = useState(1);
+  const [eye, setEye] = useState(1.65);
   const [stats, setStats] = useState({ parts: 0, uploads: 0 });
 
   useEffect(() => {
@@ -52,6 +55,17 @@ export function Viewer3DView() {
   useEffect(() => { viewer.current?.setSelected(selection[0] ?? null); }, [selection]);
   useEffect(() => { viewer.current?.setWallMode(walls); }, [walls]);
   useEffect(() => { viewer.current?.setWalk(walk); }, [walk]);
+  useEffect(() => { viewer.current?.setLight(light); }, [light]);
+  useEffect(() => { viewer.current?.setIntensity(intensity); }, [intensity]);
+  useEffect(() => { viewer.current?.setEyeHeight(eye); }, [eye]);
+  // walls and railings stop the walker; the list is rebuilt whenever the plan changes
+  useEffect(() => {
+    const segs = (allFloors ? project.floors : [floor]).flatMap((f) => Object.values(f.walls)
+      .filter((w) => w.kind !== 'open')
+      .map((w) => { const a = f.vertices[w.a], b = f.vertices[w.b]; return a && b ? [a.x, a.y, b.x, b.y, w.thickness / 2] : null; })
+      .filter((x): x is number[] => !!x));
+    viewer.current?.setBlockers(segs);
+  }, [project.floors, floor, allFloors]);
 
   if (error) return <div className="viewer-error" role="alert">3D unavailable: {error}</div>;
   return (
@@ -60,8 +74,22 @@ export function Viewer3DView() {
         <button className="btn sm" onClick={() => { setWalk(false); viewer.current?.preset('perspective'); }}>{t('perspective')}</button>
         <button className="btn sm" onClick={() => { setWalk(false); viewer.current?.preset('top'); }}>{t('top')}</button>
         <button className="btn sm" onClick={() => { setWalk(false); viewer.current?.preset('iso'); }}>{t('iso')}</button>
-        <button className={`btn sm ${walk ? 'on' : ''}`} onClick={() => setWalk(!walk)}>{t('walk')}</button>
+        <button className="btn sm" data-testid="view-dollhouse" onClick={() => { setWalk(false); setCeilings(false); viewer.current?.preset('dollhouse'); }}>{t('dollhouse')}</button>
+        <button className={`btn sm ${walk ? 'on' : ''}`} data-testid="view-walk" onClick={() => setWalk(!walk)}>{t('walk')}</button>
         <button className="btn sm" onClick={() => viewer.current?.fit()}>{t('fitView')}</button>
+        <select className="sm" data-testid="scene-light" value={light} onChange={(e) => setLight(e.target.value as SceneLight)} aria-label={t('daylight')}>
+          <option value="morning">{t('morning')}</option><option value="day">{t('midday')}</option><option value="evening">{t('evening')}</option><option value="night">{t('night')}</option>
+        </select>
+        <label className="check sm" title={t('warmth')}>🔆
+          <input type="range" data-testid="light-intensity" min={0.5} max={1.6} step={0.05} value={intensity} onChange={(e) => setIntensity(Number(e.target.value))} style={{ width: 70 }} />
+        </label>
+        <button className="btn sm primary" data-testid="render-shot" onClick={() => {
+          const v = viewer.current; if (!v) return;
+          const url = v.capture(3, 'image/png');
+          const a = document.createElement('a');
+          a.href = url; a.download = `${project.name || 'planforge'}-render.png`; document.body.appendChild(a); a.click(); a.remove();
+          toast(t('renderSaved'));
+        }}>{t('render')}</button>
         <select className="sm" value={walls} onChange={(e) => setWalls(e.target.value as WallMode)} aria-label={t('walls')}>
           <option value="solid">{t('walls')}: {t('solid')}</option><option value="transparent">{t('walls')}: {t('transparent')}</option><option value="hidden">{t('walls')}: {t('hidden')}</option>
         </select>
@@ -70,6 +98,15 @@ export function Viewer3DView() {
         <span className="muted sm" data-testid="viewer-stats">{stats.parts} parts</span>
       </div>
       <canvas ref={ref} className="viewer-canvas" data-testid="viewer-canvas" />
+      {walk && (
+        <div className="walk-opts" data-testid="walk-options">
+          <label className="check sm">{t('eyeHeight')}
+            <input type="range" data-testid="eye-height" min={0.8} max={2.0} step={0.05} value={eye} onChange={(e) => setEye(Number(e.target.value))} />
+            <b>{eye.toFixed(2)} m</b>
+          </label>
+          <label className="check sm"><input type="checkbox" data-testid="walk-collide" defaultChecked onChange={(e) => { if (viewer.current) viewer.current.collide = e.target.checked; }} /> {t('collision')}</label>
+        </div>
+      )}
       {walk && (
         <div className="walk-pad" data-testid="walk-pad" aria-label="walk controls">
           {([['w', '▲', 'up'], ['arrowleft', '⟲', 'tl'], ['a', '◀', 'left'], ['d', '▶', 'right'], ['arrowright', '⟳', 'tr'], ['s', '▼', 'down']] as const).map(([k, lbl, cls]) => (

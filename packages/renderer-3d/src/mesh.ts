@@ -5,9 +5,11 @@
  */
 import type { Floor, Furniture, ModelAsset, Project, Vec2, Wall } from '../../shared-types/src/index';
 import { decodeFloats } from '../../cad-io/src/model-import';
+import { furnitureParts as shapeParts, type Part } from './furniture';
+import type { Shape } from '../../shared-types/src/catalog';
 import { ceilingAbove, furnitureCorners, add, dist, norm, openingGeometry, perp, roomPoints, scale, sub, triangulate, wallEnds, wallHeight, centroid } from '../../geometry/src/index';
 
-export type PartKind = 'wall' | 'railing' | 'floor' | 'ceiling' | 'soffit' | 'furniture' | 'glass' | 'door';
+export type PartKind = 'wall' | 'railing' | 'floor' | 'ceiling' | 'soffit' | 'furniture' | 'glass' | 'door' | 'light';
 export interface MeshPart {
   key: string;
   id: string;
@@ -28,6 +30,13 @@ const MATERIAL_COLORS: Record<string, string> = {
   wood: '#c8a27a', tile: '#d9d9d6', concrete: '#a8a8a8', carpet: '#9a8c98', marble: '#ece8e1', 'paint-white': '#f1efe9', plaster: '#ebe7df', brick: '#b5654a', stone: '#9c9a92',
 };
 export const materialColor = (m: string) => MATERIAL_COLORS[m] ?? (m.startsWith('#') ? m : '#e6e2da');
+
+/** lighten (k > 1) or darken (k < 1) a colour, so one finish shades a whole object consistently */
+export function tint(hex: string, k: number): string {
+  const [r, g, b] = hexToRgba(hex).slice(0, 3) as number[];
+  const f = (v: number) => Math.round(Math.max(0, Math.min(1, k <= 1 ? v * k : v + (1 - v) * (k - 1))) * 255).toString(16).padStart(2, '0');
+  return `#${f(r)}${f(g)}${f(b)}`;
+}
 
 export function hexToRgba(h: string, a = 1): [number, number, number, number] {
   const m = h.replace('#', '');
@@ -54,6 +63,26 @@ class Builder {
     }
     if (caps) { this.cap(poly, y1, [0, 1, 0]); this.cap(poly, y0, [0, -1, 0]); }
   }
+  /** extrude between two matching rings (shades, pots, hoods) */
+  frustum(low: Vec2[], high: Vec2[], y0: number, y1: number) {
+    if (low.length !== high.length || low.length < 3) return;
+    const c = centroid(low);
+    for (let i = 0; i < low.length; i++) {
+      const p = low[i], q = low[(i + 1) % low.length], P2 = high[i], Q2 = high[(i + 1) % high.length];
+      const d = norm(sub(q, p));
+      let o = { x: d.y, y: -d.x };
+      const mid = scale(add(p, q), 0.5);
+      if ((mid.x - c.x) * o.x + (mid.y - c.y) * o.y < 0) o = { x: -o.x, y: -o.y };
+      const dy = y1 - y0, run = Math.hypot(Q2.x - q.x, Q2.y - q.y) || 0;
+      const ny: number = run > 1e-6 ? run / Math.hypot(dy, run) : 0;
+      const n: [number, number, number] = [o.x, ny, o.y];
+      const a = this.vtxPub(p.x, y0, p.y, n), b = this.vtxPub(q.x, y0, q.y, n), cc = this.vtxPub(Q2.x, y1, Q2.y, n), dd = this.vtxPub(P2.x, y1, P2.y, n);
+      this.indices.push(a, b, cc, a, cc, dd);
+    }
+    this.cap(high, y1, [0, 1, 0]);
+    this.cap(low, y0, [0, -1, 0]);
+  }
+  vtxPub(x: number, y: number, z: number, n: [number, number, number]) { this.positions.push(x, y, z); this.normals.push(...n); return this.positions.length / 3 - 1; }
   cap(poly: Vec2[], y: number, n: [number, number, number]) {
     const base = this.positions.length / 3;
     for (const p of poly) this.vtx(p.x, y, p.y, n);
@@ -151,42 +180,6 @@ function wallParts(f: Floor, deg: Map<string, number>): MeshPart[] {
   return out;
 }
 
-/** local-space boxes [x0,y0,x1,y1, z0,z1, color?] describing a furniture shape */
-function furnitureBoxes(fu: Furniture): { r: [number, number, number, number]; z: [number, number]; color?: string; alpha?: number; round?: boolean }[] {
-  const hw = fu.width / 2, hd = fu.depth / 2, H = fu.height;
-  const leg = 0.05;
-  switch (fu.meta.shape) {
-    case 'table': return [
-      { r: [-hw, -hd, hw, hd], z: [H - 0.04, H] },
-      ...[[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => ({ r: [sx * (hw - 0.04) - leg / 2, sy * (hd - 0.04) - leg / 2, sx * (hw - 0.04) + leg / 2, sy * (hd - 0.04) + leg / 2] as [number, number, number, number], z: [0, H - 0.04] as [number, number] })),
-    ];
-    case 'sofa': return [
-      { r: [-hw, -hd, hw, hd], z: [0, Math.min(0.42, H)] },
-      { r: [-hw, -hd, hw, -hd + 0.2], z: [0, H] },
-      { r: [-hw, -hd, -hw + 0.15, hd], z: [0, Math.min(0.62, H)] },
-      { r: [hw - 0.15, -hd, hw, hd], z: [0, Math.min(0.62, H)] },
-    ];
-    case 'bed': return [
-      { r: [-hw, -hd, hw, hd], z: [0, H] },
-      { r: [-hw, -hd, hw, -hd + 0.06], z: [0, Math.max(H, 0.95)], color: '#8d6e52' },
-      { r: [-hw + 0.1, -hd + 0.1, hw - 0.1, -hd + 0.45], z: [H, H + 0.12], color: '#ffffff' },
-    ];
-    case 'chair': return [
-      { r: [-hw, -hd, hw, hd], z: [0.42, 0.47] },
-      { r: [-hw, hd - 0.05, hw, hd], z: [0.47, H] },
-      ...[[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => ({ r: [sx * hw - (sx > 0 ? 0.04 : 0), sy * hd - (sy > 0 ? 0.04 : 0), sx * hw + (sx < 0 ? 0.04 : 0), sy * hd + (sy < 0 ? 0.04 : 0)] as [number, number, number, number], z: [0, 0.42] as [number, number] })),
-    ];
-    case 'toilet': return [{ r: [-hw * 0.8, -hd + 0.18, hw * 0.8, hd], z: [0, 0.42], round: true }, { r: [-hw, -hd, hw, -hd + 0.18], z: [0, H] }];
-    case 'shower': return [{ r: [-hw, -hd, hw, hd], z: [0, 0.05] }, { r: [-hw, -hd, hw, hd], z: [0.05, H], color: '#cfe8ff', alpha: 0.25 }];
-    case 'cylinder': return [{ r: [-hw, -hd, hw, hd], z: [0, H], round: true }];
-    case 'stairs': {
-      const steps = Math.max(2, Math.round(H / 0.175));
-      return Array.from({ length: steps }, (_, i) => ({ r: [-hw, -hd + (fu.depth / steps) * i, hw, hd] as [number, number, number, number], z: [(H / steps) * i, (H / steps) * (i + 1)] as [number, number] }));
-    }
-    default: return [{ r: [-hw, -hd, hw, hd], z: [0, H] }];
-  }
-}
-
 const decoded = new Map<string, Float32Array>();
 function modelPart(f: Floor, fu: Furniture, a: ModelAsset): MeshPart {
   let tris = decoded.get(a.id);
@@ -218,21 +211,28 @@ function furnitureParts(f: Floor, assets: Record<string, ModelAsset> = {}): Mesh
     const rad = (fu.rotation * Math.PI) / 180, c = Math.cos(rad), s = Math.sin(rad), m = fu.mirrored ? -1 : 1;
     const T = (x: number, y: number): Vec2 => ({ x: fu.x + c * x * m - s * y, y: fu.y + s * x * m + c * y });
     const groups = new Map<string, { b: Builder; alpha: number }>();
-    for (const bx of furnitureBoxes(fu)) {
-      const col = bx.color ?? fu.color, alpha = bx.alpha ?? 1;
+    const base = f.elevation + fu.elevation;
+    const parts: Part[] = shapeParts((fu.meta.shape ?? 'box') as Shape, fu.width, fu.depth, fu.height);
+    for (const bx of parts) {
+      const col = bx.color ?? (bx.tint && bx.tint !== 1 ? tint(fu.color, bx.tint) : fu.color), alpha = bx.alpha ?? 1;
       const gk = `${col}|${alpha}`;
       if (!groups.has(gk)) groups.set(gk, { b: new Builder(), alpha });
       const [x0, y0, x1, y1] = bx.r;
-      let poly: Vec2[];
-      if (bx.round) {
-        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
-        poly = Array.from({ length: 20 }, (_, i) => T(cx + Math.cos((i / 20) * Math.PI * 2) * rx, cy + Math.sin((i / 20) * Math.PI * 2) * ry));
-      } else poly = [T(x0, y0), T(x1, y0), T(x1, y1), T(x0, y1)];
-      if (fu.mirrored) poly.reverse();
-      groups.get(gk)!.b.prism(poly, f.elevation + fu.elevation + bx.z[0], f.elevation + fu.elevation + bx.z[1]);
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+      const ring = (k: number): Vec2[] => bx.round
+        ? Array.from({ length: 20 }, (_, i) => T(cx + Math.cos((i / 20) * Math.PI * 2) * rx * k, cy + Math.sin((i / 20) * Math.PI * 2) * ry * k))
+        : [T(cx - rx * k, cy - ry * k), T(cx + rx * k, cy - ry * k), T(cx + rx * k, cy + ry * k), T(cx - rx * k, cy + ry * k)];
+      const low = ring(1);
+      if (fu.mirrored) low.reverse();
+      const g = groups.get(gk)!.b;
+      if (bx.taper && bx.taper !== 1) {
+        const high = ring(bx.taper);
+        if (fu.mirrored) high.reverse();
+        g.frustum(low, high, base + bx.z[0], base + bx.z[1]);
+      } else g.prism(low, base + bx.z[0], base + bx.z[1]);
     }
     let i = 0;
-    for (const [gk, { b, alpha }] of groups) out.push({ key: `${key}#${i}`, id: fu.id, kind: alpha < 1 ? 'glass' : 'furniture', floorId: f.id, color: hexToRgba(gk.split('|')[0], alpha), positions: b.positions, normals: b.normals, indices: b.indices }), i++;
+    for (const [gk, { b, alpha }] of groups) out.push({ key: `${key}#${i}`, id: fu.id, kind: alpha < 1 ? 'glass' : gk.toLowerCase().startsWith('#ffeec2') ? 'light' : 'furniture', floorId: f.id, color: hexToRgba(gk.split('|')[0], alpha), positions: b.positions, normals: b.normals, indices: b.indices }), i++;
   }
   return out;
 }

@@ -10,7 +10,7 @@ import {
   addAnnotation, addDimension, addFurniture, addOpening, addPartitionWall, addRoom, deleteEntity, dist, formatLength, furnitureCorners, insertCorner,
   moveRoom, moveVertex, moveWall, norm, openingGeometry, perp, pointInPolygon, projectOnSegment, roomPoints, sub, updateFurniture, updateOpening, updateWall,
   wallEnds, rotateRoom, objectToWallDistance, addCeilingDrop, updateCeilingDrop, ceilingAbove, deleteCorner, mergeWallsAt, signedArea, polygonArea, formatArea, bbox, parseLength,
-  closeWallLoop, wallLoopAt, openingOffsets, addPhoto,
+  closeWallLoop, wallLoopAt, openingOffsets, addPhoto, add, scale,
 } from '../../../../packages/geometry/src/index';
 import { buildDrawing, drawingBounds, type Layer } from '../../../../packages/cad-io/src/drawing';
 import { catalogById } from '../../../../packages/shared-types/src/catalog';
@@ -550,9 +550,27 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     }
     const item = catalogById(catalogId);
     if (!item) return;
+    // objects that stand against a wall turn their back to the nearest one and sit on its face
+    let at = p, rotation = 0;
+    if (item.wall) {
+      let best: { d: number; q: Vec2; n: Vec2 } | null = null;
+      for (const wl of Object.values(floor.walls)) {
+        const { a: wa, b: wb } = wallEnds(floor, wl);
+        const pr = projectOnSegment(p, wa, wb);
+        const face = pr.distance - wl.thickness / 2;
+        if (face > 1.0 || (best && pr.distance >= best.d)) continue;
+        const n = norm(sub(p, pr.point));
+        if (!n.x && !n.y) continue;
+        best = { d: pr.distance, q: add(pr.point, scale(n, wl.thickness / 2)), n };
+      }
+      if (best) {
+        at = add(best.q, scale(best.n, item.depth / 2));
+        rotation = (Math.atan2(best.n.x, -best.n.y) * 180) / Math.PI;
+      }
+    }
     let id: ID | null = null;
     const ok = editFloor(`Add ${item.name.en}`, (f) => {
-      const r = addFurniture(f, { catalogId: item.id, name: item.name[lang], category: item.category, x: p.x, y: p.y, rotation: 0, width: item.width, depth: item.depth, height: item.height, elevation: item.elevation ?? 0, mirrored: false, layer: 'furniture', color: item.color, meta: { shape: item.shape } });
+      const r = addFurniture(f, { catalogId: item.id, name: item.name[lang], category: item.category, x: at.x, y: at.y, rotation: +rotation.toFixed(2), width: item.width, depth: item.depth, height: item.height, elevation: item.elevation ?? 0, mirrored: false, layer: 'furniture', color: item.color, meta: { shape: item.shape } });
       id = r.id; return r.floor;
     });
     if (ok && id) { select([id]); setTool('select'); }

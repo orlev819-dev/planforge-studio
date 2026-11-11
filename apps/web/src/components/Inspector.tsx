@@ -8,6 +8,7 @@ import {
 import { editFloor, editProject, getState, select, setTool, toast, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
 import { materialColor } from '../../../../packages/renderer-3d/src/mesh';
+import { catalogById } from '../../../../packages/shared-types/src/catalog';
 import { Icon } from './Icon';
 import { LengthField, NumberField, TextField, SelectField, Check, Stat, MATERIALS } from './fields';
 import { CameraDialog } from './CameraDialog';
@@ -211,7 +212,21 @@ export function Inspector() {
         <NumberField label={t('rotation')} value={fu.rotation} suffix="°" step={15} onCommit={(r) => set({ rotation: ((r % 360) + 360) % 360 })} />
         <Check label={t('mirror')} checked={fu.mirrored} onChange={(b) => set({ mirrored: b })} />
         <TextField label={t('layer')} value={fu.layer} onCommit={(layer) => set({ layer })} />
-        <label className="field"><span>Color</span><input type="color" value={fu.color} onChange={(e) => set({ color: e.target.value })} /></label>
+        {(() => {
+          const finishes = catalogById(fu.catalogId)?.finishes;
+          if (!finishes?.length) return null;
+          return (
+            <label className="field"><span>{t('materialFinish')}</span>
+              <span className="swatches" data-testid="furniture-finishes">
+                {finishes.map((c) => (
+                  <button key={c} type="button" className={`sw ${fu.color.toLowerCase() === c.toLowerCase() ? 'on' : ''}`} style={{ background: c }}
+                    data-testid={`finish-${c.replace('#', '')}`} title={c} onClick={() => set({ color: c }, 'Finish')} />
+                ))}
+              </span>
+            </label>
+          );
+        })()}
+        <label className="field"><span>Color</span><input type="color" data-testid="furniture-color" value={fu.color} onChange={(e) => set({ color: e.target.value })} /></label>
         <Stat label={t('distToWall')} value={isFinite(dw.distance) ? L(dw.distance) : '—'} />
         <MetaEditor meta={fu.meta} onChange={(meta) => set({ meta }, 'Edit metadata')} />
         <div className="row">

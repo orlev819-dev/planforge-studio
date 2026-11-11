@@ -2,6 +2,8 @@
  * Renderer-independent 2D drawing list. The editor canvas, SVG, DXF and PDF exporters all render
  * these primitives, so every output shows identical geometry.
  */
+import { planSymbol } from './symbols';
+import type { Shape } from '../../shared-types/src/catalog';
 import type { Floor, LengthUnit, MeasureMode, ModelAsset, Vec2, Wall } from '../../shared-types/src/index';
 import {
   add, dist, furnitureCorners, formatArea, formatLength, norm, openingGeometry, perp, pointInPolygon, pt, roomMetrics, roomEdgeWalls, roomPoints,
@@ -173,15 +175,11 @@ export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
         continue;
       }
       out.push({ t: 'poly', layer: 'furniture', pts: c, closed: true, fill: C.furnitureFill, stroke: C.furniture, width: 0.012, id: fu.id });
-      const shape = fu.meta.shape;
+      // the object's own plan symbol, in its local frame
       const r = (fu.rotation * Math.PI) / 180, ux = { x: Math.cos(r), y: Math.sin(r) }, uy = { x: -Math.sin(r), y: Math.cos(r) };
-      const P = (lx: number, ly: number) => ({ x: fu.x + ux.x * lx * (fu.mirrored ? -1 : 1) + uy.x * ly, y: fu.y + ux.y * lx * (fu.mirrored ? -1 : 1) + uy.y * ly });
-      const hw = fu.width / 2, hd = fu.depth / 2;
-      if (shape === 'bed') out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw, -hd + 0.35), P(hw, -hd + 0.35)], closed: false, stroke: C.furniture, width: 0.01 });
-      if (shape === 'sofa') out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw + 0.15, hd), P(-hw + 0.15, -hd + 0.2), P(hw - 0.15, -hd + 0.2), P(hw - 0.15, hd)], closed: false, stroke: C.furniture, width: 0.01 });
-      if (shape === 'bath' || shape === 'basin' || shape === 'toilet') out.push({ t: 'poly', layer: 'furniture', pts: arcPoints(P(0, shape === 'toilet' ? 0.08 : 0), Math.min(hw, hd) * 0.7, 0, Math.PI * 2, 28), closed: true, stroke: C.furniture, width: 0.01 });
-      if (shape === 'stairs') for (let y = -hd + 0.28; y < hd; y += 0.28) out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw, y), P(hw, y)], closed: false, stroke: C.furniture, width: 0.008 });
-      if (shape === 'table') out.push({ t: 'poly', layer: 'furniture', pts: [P(-hw + 0.04, -hd + 0.04), P(hw - 0.04, -hd + 0.04), P(hw - 0.04, hd - 0.04), P(-hw + 0.04, hd - 0.04)], closed: true, stroke: C.furniture, width: 0.006 });
+      const P = (p: Vec2) => ({ x: fu.x + ux.x * p.x * (fu.mirrored ? -1 : 1) + uy.x * p.y, y: fu.y + ux.y * p.x * (fu.mirrored ? -1 : 1) + uy.y * p.y });
+      for (const sym of planSymbol((fu.meta.shape ?? 'box') as Shape, fu.width, fu.depth))
+        out.push({ t: 'poly', layer: 'furniture', pts: sym.pts.map(P), closed: !!sym.closed, stroke: C.furniture, width: sym.thin ? 0.005 : 0.009, dash: sym.dash, id: fu.id });
     }
 
   if (opts.ceilings !== false)

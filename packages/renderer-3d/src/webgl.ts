@@ -36,18 +36,36 @@ const m4 = {
 
 const VS = `attribute vec3 aPos; attribute vec3 aNor; uniform mat4 uMVP; varying vec3 vN; varying vec3 vP;
 void main(){ vN = aNor; vP = aPos; gl_Position = uMVP * vec4(aPos,1.0); }`;
-const FS = `precision mediump float; varying vec3 vN; varying vec3 vP; uniform vec4 uColor; uniform vec3 uLight; uniform float uPick; uniform float uHi; uniform float uTwo;
+const FS = `precision mediump float; varying vec3 vN; varying vec3 vP;
+uniform vec4 uColor; uniform vec3 uLight; uniform float uPick; uniform float uHi; uniform float uTwo;
+uniform vec3 uSun; uniform vec3 uSky; uniform vec3 uGround; uniform float uExposure; uniform float uEmissive;
 void main(){
   if (uPick > 0.5) { gl_FragColor = uColor; return; }
   vec3 n = normalize(vN);
   if (uTwo > 0.5 && !gl_FrontFacing) n = -n;
-  float d = max(dot(n, normalize(uLight)), 0.0);
-  float d2 = max(dot(n, normalize(vec3(-0.4, 0.6, -0.7))), 0.0);
+  vec3 L = normalize(uLight);
+  float d = max(dot(n, L), 0.0);
+  float fill = max(dot(n, normalize(vec3(-L.x, 0.45, -L.z))), 0.0);
+  // hemispheric ambient: sky above, bounced floor light below — stands in for ambient occlusion
   float hemi = 0.5 + 0.5 * n.y;
-  vec3 c = uColor.rgb * (0.38 + 0.22 * hemi + 0.55 * d + 0.18 * d2);
+  vec3 ambient = mix(uGround, uSky, hemi);
+  vec3 c = uColor.rgb * (ambient + uSun * (0.78 * d + 0.22 * fill));
+  c = mix(c, uColor.rgb * 1.6 + vec3(0.12), uEmissive);
+  c = c * uExposure;
+  c = c / (c + vec3(0.9));                 // soft shoulder, so bright finishes do not clip
+  c = pow(c, vec3(1.0 / 1.25));
   c = mix(c, vec3(0.2, 0.55, 1.0), uHi * 0.45);
   gl_FragColor = vec4(c, uColor.a);
 }`;
+
+/** Daylight presets: sun direction and colour, sky and bounce ambient, exposure. */
+export type SceneLight = 'morning' | 'day' | 'evening' | 'night';
+export const SCENE_LIGHTS: Record<SceneLight, { dir: [number, number, number]; sun: [number, number, number]; sky: [number, number, number]; ground: [number, number, number]; exposure: number; bg: [number, number, number] }> = {
+  morning: { dir: [0.75, 0.42, 0.5], sun: [1.02, 0.9, 0.72], sky: [0.3, 0.33, 0.38], ground: [0.16, 0.15, 0.14], exposure: 1.18, bg: [0.95, 0.94, 0.9] },
+  day: { dir: [0.4, 0.95, 0.35], sun: [1.0, 0.98, 0.94], sky: [0.34, 0.37, 0.42], ground: [0.18, 0.17, 0.16], exposure: 1.1, bg: [0.93, 0.94, 0.95] },
+  evening: { dir: [-0.8, 0.3, -0.35], sun: [1.1, 0.72, 0.45], sky: [0.26, 0.24, 0.28], ground: [0.14, 0.12, 0.12], exposure: 1.05, bg: [0.9, 0.84, 0.78] },
+  night: { dir: [-0.2, 0.75, 0.3], sun: [0.34, 0.38, 0.5], sky: [0.12, 0.13, 0.17], ground: [0.06, 0.06, 0.08], exposure: 1.3, bg: [0.09, 0.1, 0.13] },
+};
 
 interface GpuPart { part: MeshPart; vbo: WebGLBuffer; nbo: WebGLBuffer; ibo: WebGLBuffer; count: number; pickColor: [number, number, number, number] }
 
@@ -92,7 +110,7 @@ export class Viewer3D {
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) ?? 'link');
     this.prog = p;
     for (const a of ['aPos', 'aNor']) this.loc[a] = gl.getAttribLocation(p, a);
-    for (const u of ['uMVP', 'uColor', 'uLight', 'uPick', 'uHi', 'uTwo']) this.loc[u] = gl.getUniformLocation(p, u)!;
+    for (const u of ['uMVP', 'uColor', 'uLight', 'uPick', 'uHi', 'uTwo', 'uSun', 'uSky', 'uGround', 'uExposure', 'uEmissive']) this.loc[u] = gl.getUniformLocation(p, u)!;
     this.attachControls();
     const loop = () => { this.raf = requestAnimationFrame(loop); this.stepWalk(); if (this.dirty) { this.dirty = false; this.draw(); } };
     this.raf = requestAnimationFrame(loop);
@@ -124,13 +142,15 @@ export class Viewer3D {
     const b = meshBounds([...this.parts.values()].map((g) => g.part));
     this.target = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
     this.distance = Math.max(8, Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]) * 2.1);
-    this.walkPos = [this.target[0], (b.min[1] || 0) + 1.6, this.target[2]];
+    this.floorY = b.min[1] || 0;
+    this.walkPos = [this.target[0], this.floorY + this.eyeHeight, this.target[2]];
     this.dirty = true;
   }
-  preset(name: 'top' | 'iso' | 'perspective') {
+  preset(name: 'top' | 'iso' | 'perspective' | 'dollhouse') {
     this.mode = 'orbit';
     if (name === 'top') { this.projection = 'ortho'; this.pitch = Math.PI / 2 - 1e-4; this.yaw = 0; }
     else if (name === 'iso') { this.projection = 'ortho'; this.pitch = Math.atan(1 / Math.SQRT2); this.yaw = Math.PI / 4; }
+    else if (name === 'dollhouse') { this.projection = 'perspective'; this.pitch = 0.95; this.yaw = Math.PI / 4; }
     else { this.projection = 'perspective'; this.pitch = 0.6; this.yaw = Math.PI / 4; }
     this.dirty = true;
   }
@@ -140,6 +160,39 @@ export class Viewer3D {
   setWallMode(m: WallMode) { this.wallMode = m; this.dirty = true; }
   setSelected(id: string | null) { this.selectedId = id; this.dirty = true; }
   invalidate() { this.dirty = true; }
+
+  /** daylight preset, lamp warmth (-1 cool .. 1 warm) and overall intensity */
+  light: SceneLight = 'day';
+  warmth = 0;
+  intensity = 1;
+  private superSample: number | null = null;
+  /** wall segments [x0,z0,x1,z1,halfThickness] the walker cannot step through */
+  private blockers: number[][] = [];
+  setLight(l: SceneLight) { this.light = l; this.dirty = true; }
+  setWarmth(v: number) { this.warmth = Math.max(-1, Math.min(1, v)); this.dirty = true; }
+  setIntensity(v: number) { this.intensity = Math.max(0.3, Math.min(2, v)); this.dirty = true; }
+  setBlockers(segs: number[][]) { this.blockers = segs; }
+  setEyeHeight(h: number) { this.eyeHeight = Math.max(0.6, Math.min(2.2, h)); this.walkPos[1] = this.floorY + this.eyeHeight; this.dirty = true; }
+  eyeHeight = 1.65;
+  collide = true;
+  private floorY = 0;
+
+  /**
+   * Render the current view at a higher pixel size and hand back a PNG/JPEG data URL. The extra
+   * pixels are the quality: geometry, materials and light are exactly what the viewer shows.
+   */
+  capture(scale = 3, type: 'image/png' | 'image/jpeg' = 'image/png'): string {
+    const before = this.superSample;
+    this.superSample = Math.max(1, Math.min(4, scale));
+    try {
+      this.draw();
+      return this.canvas.toDataURL(type, 0.95);
+    } finally {
+      this.superSample = before;
+      this.dirty = true;
+      this.draw();
+    }
+  }
 
   private camera() {
     const w = this.canvas.clientWidth || 1, h = this.canvas.clientHeight || 1, aspect = w / h;
@@ -160,16 +213,22 @@ export class Viewer3D {
 
   private draw(pick = false) {
     const gl = this.gl, c = this.canvas;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = this.superSample ?? Math.min(2, window.devicePixelRatio || 1);
     const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
     if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
     gl.viewport(0, 0, W, H);
-    if (pick) gl.clearColor(0, 0, 0, 0); else gl.clearColor(0.93, 0.94, 0.95, 1);
+    const L = SCENE_LIGHTS[this.light];
+    if (pick) gl.clearColor(0, 0, 0, 0); else gl.clearColor(L.bg[0], L.bg[1], L.bg[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.useProgram(this.prog);
     gl.uniformMatrix4fv(this.loc.uMVP as WebGLUniformLocation, false, this.camera());
-    gl.uniform3f(this.loc.uLight as WebGLUniformLocation, 0.5, 0.9, 0.35);
+    gl.uniform3f(this.loc.uLight as WebGLUniformLocation, L.dir[0], L.dir[1], L.dir[2]);
+    const warm = this.warmth, k = this.intensity;
+    gl.uniform3f(this.loc.uSun as WebGLUniformLocation, L.sun[0] * k * (1 + 0.12 * warm), L.sun[1] * k, L.sun[2] * k * (1 - 0.12 * warm));
+    gl.uniform3f(this.loc.uSky as WebGLUniformLocation, L.sky[0], L.sky[1], L.sky[2]);
+    gl.uniform3f(this.loc.uGround as WebGLUniformLocation, L.ground[0], L.ground[1], L.ground[2]);
+    gl.uniform1f(this.loc.uExposure as WebGLUniformLocation, L.exposure);
     gl.uniform1f(this.loc.uPick as WebGLUniformLocation, pick ? 1 : 0);
     const all = [...this.parts.values()];
     const visible = all.filter((g) => !(g.part.kind === 'wall' && this.wallMode === 'hidden') && !(g.part.kind === 'ceiling' && this.mode === 'orbit' && this.pitch > 0.2));
@@ -179,6 +238,7 @@ export class Viewer3D {
       gl.uniform4fv(this.loc.uColor as WebGLUniformLocation, col as number[]);
       gl.uniform1f(this.loc.uHi as WebGLUniformLocation, !pick && this.selectedId === g.part.id ? 1 : 0);
       gl.uniform1f(this.loc.uTwo as WebGLUniformLocation, g.part.twoSided ? 1 : 0);
+      gl.uniform1f(this.loc.uEmissive as WebGLUniformLocation, !pick && g.part.kind === 'light' ? (this.light === 'night' ? 1 : 0.55) : 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, g.vbo); gl.enableVertexAttribArray(this.loc.aPos as number); gl.vertexAttribPointer(this.loc.aPos as number, 3, gl.FLOAT, false, 0, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, g.nbo); gl.enableVertexAttribArray(this.loc.aNor as number); gl.vertexAttribPointer(this.loc.aNor as number, 3, gl.FLOAT, false, 0, 0);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, g.ibo);
@@ -204,14 +264,35 @@ export class Viewer3D {
     return this.pickIds.get(px[0] + (px[1] << 8) + (px[2] << 16)) ?? null;
   }
 
+  /** nearest distance from a point to a wall segment, in plan */
+  private blocked(x: number, z: number): boolean {
+    if (!this.collide) return false;
+    const r = 0.26; // shoulder width
+    for (const [x0, z0, x1, z1, half] of this.blockers) {
+      const dx = x1 - x0, dz = z1 - z0, L2 = dx * dx + dz * dz;
+      const t = L2 > 1e-9 ? Math.max(0, Math.min(1, ((x - x0) * dx + (z - z0) * dz) / L2)) : 0;
+      const px = x0 + dx * t, pz = z0 + dz * t;
+      if (Math.hypot(x - px, z - pz) < half + r) return true;
+    }
+    return false;
+  }
+
   private stepWalk() {
     if (this.mode !== 'walk' || !this.keys.size) return;
     const sp = this.keys.has('shift') ? 0.12 : 0.05;
     const fx = Math.sin(this.walkYaw), fz = -Math.cos(this.walkYaw);
-    if (this.keys.has('w') || this.keys.has('arrowup')) { this.walkPos[0] += fx * sp; this.walkPos[2] += fz * sp; }
-    if (this.keys.has('s') || this.keys.has('arrowdown')) { this.walkPos[0] -= fx * sp; this.walkPos[2] -= fz * sp; }
-    if (this.keys.has('a')) { this.walkPos[0] += fz * sp; this.walkPos[2] -= fx * sp; }
-    if (this.keys.has('d')) { this.walkPos[0] -= fz * sp; this.walkPos[2] += fx * sp; }
+    let mx = 0, mz = 0;
+    if (this.keys.has('w') || this.keys.has('arrowup')) { mx += fx * sp; mz += fz * sp; }
+    if (this.keys.has('s') || this.keys.has('arrowdown')) { mx -= fx * sp; mz -= fz * sp; }
+    if (this.keys.has('a')) { mx += fz * sp; mz -= fx * sp; }
+    if (this.keys.has('d')) { mx -= fz * sp; mz += fx * sp; }
+    // slide along a wall instead of stopping dead against it
+    if (mx || mz) {
+      const x = this.walkPos[0], z = this.walkPos[2];
+      if (!this.blocked(x + mx, z + mz)) { this.walkPos[0] = x + mx; this.walkPos[2] = z + mz; }
+      else if (!this.blocked(x + mx, z)) this.walkPos[0] = x + mx;
+      else if (!this.blocked(x, z + mz)) this.walkPos[2] = z + mz;
+    }
     if (this.keys.has('arrowleft')) this.walkYaw -= 0.03;
     if (this.keys.has('arrowright')) this.walkYaw += 0.03;
     this.dirty = true;

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { CATALOG, CATEGORIES } from '../../../../packages/shared-types/src/catalog';
 import { editProject, setState, setTool, toast, useStore } from '../store';
 import { ImportModelDialog } from './ImportModelDialog';
+import { CatalogThumb } from './CatalogThumb';
 import { useT } from '../i18n';
 
 export function LibraryPanel({ compact }: { compact?: boolean }) {
@@ -12,7 +13,8 @@ export function LibraryPanel({ compact }: { compact?: boolean }) {
   const assets = useStore((s) => s.project?.assets ?? null);
   const inProject = useStore((s) => !!s.project);
   const [importing, setImporting] = useState(false);
-  const items = useMemo(() => CATALOG.filter((c) => cat !== 'custom' && (cat === 'all' || c.category === cat) && (`${c.name.en} ${c.name.he} ${c.category}`.toLowerCase().includes(q.toLowerCase()))), [q, cat]);
+  const items = useMemo(() => CATALOG.filter((c) => cat !== 'custom' && (cat === 'all' || c.category === cat)
+    && `${c.name.en} ${c.name.he} ${c.category} ${(c.tags ?? []).join(' ')}`.toLowerCase().includes(q.trim().toLowerCase())), [q, cat]);
   return (
     <div className={`library ${compact ? 'compact' : ''}`} data-testid="library">
       <input className="search" placeholder={`${t('search').replace('projects', 'objects')}`} value={q} onChange={(e) => setQ(e.target.value)} data-testid="library-search" />
@@ -52,11 +54,9 @@ export function LibraryPanel({ compact }: { compact?: boolean }) {
           <button key={c.id} draggable data-testid={`lib-${c.id}`} className={`lib-item ${pending === c.id ? 'on' : ''}`}
             onDragStart={(e) => { e.dataTransfer.setData('text/planforge-catalog', c.id); e.dataTransfer.effectAllowed = 'copy'; }}
             onClick={() => { setTool('furniture'); setState({ pendingCatalogId: c.id }); }} title={t('placeObject')}>
-            <svg viewBox="-1.3 -1.3 2.6 2.6" width="36" height="36" aria-hidden>
-              <rect x={-c.width / Math.max(c.width, c.depth)} y={-c.depth / Math.max(c.width, c.depth)} width={(2 * c.width) / Math.max(c.width, c.depth)} height={(2 * c.depth) / Math.max(c.width, c.depth)} fill={c.color} stroke="#555" strokeWidth="0.06" rx="0.08" />
-            </svg>
+            <CatalogThumb item={c} />
             <span>{c.name[lang]}</span>
-            <small>{Math.round(c.width * 100)}×{Math.round(c.depth * 100)}</small>
+            <small>{Math.round(c.width * 100)}×{Math.round(c.depth * 100)}×{Math.round(c.height * 100)}</small>
           </button>
         ))}
       </div>

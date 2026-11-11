@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 92 / 92 passed |
+| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 97 / 97 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 30 / 30 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 32 / 32 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -42,6 +42,15 @@ a door must be removed before the passage opens, and none can be added to it aft
 a drawn partition is still deleted outright, and the open state survives a save/load.
 E2E (1): two rooms sharing a wall → eraser on it → still two rooms, 7 walls, kind `open` → Living stays 14.00 m², Kitchen 10.50 m², passage 3.35 m → 3D part count drops →
 the wall panel shows Open with its hint, *Put the wall back* closes it, and *Remove this wall (open space)* opens it again from the panel with both rooms intact → survives a reload.
+
+## Furniture & interior design (5 unit + 2 E2E)
+Unit (5): every catalogue entry is unique, in a real category, named in both languages, with a valid colour, realistic size and elevation, and all 14 briefed categories are populated (110 items) ·
+every item builds real geometry — at least three parts for anything that is not a slab, each inside the object's own bounds and filling its footprint ·
+every item's plan symbol stays inside its outline, and over 80% of the catalogue has one · the finish tint stays inside the colour at both ends ·
+a furnished room puts every object in both the 3D scene and the plan, the L sofa comes out in several materials, the pendant has a lit part and the sheer curtain a transparent one.
+E2E (2): the brief's own acceptance list — Hebrew search finds the L sofa → place sofa, coffee table, TV unit and curtain → the wall-standing ones sit on the wall face → a beige finish recolours the sofa →
+3D builds 12+ parts → night light, dollhouse, walkthrough with eye height and the walk pad → Render downloads a PNG → everything survives a reload with the plan untouched.
+Kitchen and bathroom: fridge 1.85 m tall, shower 0.90 m, wall-hung toilet at 0.40 m, base unit keeps its shape, and the plan exports to SVG.
 
 ## Camera / site photos (3 unit + 2 E2E)
 Unit (3): a photo is pinned where it was taken, named for you, cleaned to the plan's precision and stamped, without touching the input floor · renamed, annotated and deleted like anything else, with a missing id and an empty image both refused ·

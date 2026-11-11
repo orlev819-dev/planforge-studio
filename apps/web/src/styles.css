@@ -113,6 +113,11 @@ table.report { border-collapse: collapse; width: 100%; margin-top: 12px; backgro
 .laser-pop { position: fixed; width: min(330px, calc(100vw - 16px)); max-height: min(70vh, 560px); overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; z-index: 60; }
 .laser-pop h4 { margin: 0 0 4px; } .laser-pop p { margin: 6px 0; }
 .laser-pop #laser-aim, .laser-pop [data-testid="laser-aim"] { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.walk-opts { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--border); border-radius: 12px; padding: 6px 10px; z-index: 3; }
+.walk-opts input[type=range] { width: 110px; }
+.swatches { display: flex; gap: 5px; flex-wrap: wrap; }
+.swatches .sw { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--border); cursor: pointer; padding: 0; }
+.swatches .sw.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
 .camera-view { width: 100%; max-height: 50vh; background: #000; border-radius: 8px; object-fit: contain; }
 .photo-full { width: 100%; border-radius: 8px; cursor: zoom-in; display: block; margin-bottom: 8px; }
 .photo-strip { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
