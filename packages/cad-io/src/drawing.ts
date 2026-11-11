@@ -107,6 +107,12 @@ export function buildDrawing(f: Floor, opts: DrawingOptions): Prim[] {
 
   for (const w of Object.values(f.walls)) {
     if (w.kind === 'railing') { out.push(...railingPrims(f, w, C.railing)); continue; }
+    // an open passage: no wall body, just a dashed line showing where the rooms meet
+    if (w.kind === 'open') {
+      const { a, b } = wallEnds(f, w);
+      out.push({ t: 'poly', layer: 'walls', pts: [a, b], closed: false, stroke: C.wall, width: 0.004, dash: true, id: w.id });
+      continue;
+    }
     for (const q of wallQuads(f, w, deg)) out.push({ t: 'poly', layer: 'walls', pts: q, closed: true, fill: C.wall, stroke: C.wall, width: 0.005, id: w.id });
   }
 

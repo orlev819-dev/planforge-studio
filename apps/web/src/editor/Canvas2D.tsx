@@ -8,7 +8,7 @@ import type { Floor, ID, Opening, Vec2, Wall } from '../../../../packages/shared
 import { GeometryError } from '../../../../packages/shared-types/src/index';
 import {
   addAnnotation, addDimension, addFurniture, addOpening, addPartitionWall, addRoom, deleteEntity, dist, formatLength, furnitureCorners, insertCorner,
-  moveRoom, moveVertex, moveWall, norm, openingGeometry, perp, pointInPolygon, projectOnSegment, roomPoints, sub, updateFurniture, updateOpening,
+  moveRoom, moveVertex, moveWall, norm, openingGeometry, perp, pointInPolygon, projectOnSegment, roomPoints, sub, updateFurniture, updateOpening, updateWall,
   wallEnds, rotateRoom, objectToWallDistance, addCeilingDrop, updateCeilingDrop, ceilingAbove, deleteCorner, mergeWallsAt, signedArea, polygonArea, formatArea, bbox, parseLength,
   closeWallLoop, wallLoopAt, openingOffsets, addPhoto,
 } from '../../../../packages/geometry/src/index';
@@ -929,6 +929,8 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       items.push({ label: t('window'), run: () => editFloor('Add window', (f) => addOpening(f, h.id, 'window', h.t, { width: getState().openingDefaults.window }).floor) });
       items.push({ label: t('corner'), run: () => editFloor('Insert corner', (f) => insertCorner(f, h.id, h.t).floor) });
       if (floor.walls[h.id]?.standalone && wallLoopAt(floor, h.id)) items.push({ label: t('makeRoom'), run: () => closeLoopAt(h.id) });
+      if (floor.walls[h.id] && !floor.walls[h.id].standalone && floor.walls[h.id].kind !== 'open')
+        items.push({ label: t('openSpace'), run: () => { if (editFloor('Open passage', (f) => updateWall(f, h.id, { kind: 'open' }))) toast(t('wallToOpen')); } });
     }
     if (h.type === 'vertex') { items.push({ label: t('deleteCorner'), run: () => editFloor('Delete corner', (f) => deleteCorner(f, h.id)) }); items.push({ label: t('mergeWalls'), run: () => editFloor('Merge walls', (f) => mergeWallsAt(f, h.id)) }); }
     if (h.type === 'room' || h.type === 'furniture') { items.push({ label: t('rotate90'), run: () => rotateSelection(90) }); items.push({ label: t('duplicate'), run: () => duplicateSelection() }); }

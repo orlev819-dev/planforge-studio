@@ -108,6 +108,7 @@ function railingParts(f: Floor, w: Wall): MeshPart[] {
 function wallParts(f: Floor, deg: Map<string, number>): MeshPart[] {
   const out: MeshPart[] = [];
   for (const w of Object.values(f.walls)) {
+    if (w.kind === 'open') continue; // an open passage has nothing to build
     if (w.kind === 'railing') { out.push(...railingParts(f, w)); continue; }
     const { a, b } = wallEnds(f, w);
     const L = dist(a, b), d = norm(sub(b, a)), n = perp(d), h = w.thickness / 2, H = wallHeight(f, w), e = f.elevation;

@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 84 / 84 passed |
+| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 90 / 90 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 29 / 29 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 30 / 30 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -33,6 +33,15 @@ a self-crossing ring is refused · a partition drawn across a room does not sile
 E2E (2): tap/click 4 corners back onto the first → room panel with 14.00 m², 4 wall rows, all walls exterior, draw bar gone →
 one undo removes room + closing wall, redo restores → 3 walls onto the room's right-hand wall → second room 7.00 m²,
 7 walls, 1 interior → an open chain stays walls → both rooms survive a reload. Railing ring → 4.50 m² balcony.
+
+## Open plan — no wall between rooms (6 unit + 1 E2E)
+Unit (6): deleting the shared wall of two rooms leaves two rooms with their own names and areas (14.00 and 10.50 m²) and an edge of kind `open` ·
+an open edge adds no wall surface, raises the net area (nothing to inset for) and is reported as the clear passage width ·
+2D draws one dashed line instead of a filled body and still dimensions it, 3D builds nothing for it ·
+a door must be removed before the passage opens, and none can be added to it afterwards · the passage closes again from the wall type, and a second delete says it is already open ·
+a drawn partition is still deleted outright, and the open state survives a save/load.
+E2E (1): two rooms sharing a wall → eraser on it → still two rooms, 7 walls, kind `open` → Living stays 14.00 m², Kitchen 10.50 m², passage 3.35 m → 3D part count drops →
+the wall panel shows Open with its hint and closes the passage again → re-opened, it survives a reload.
 
 ## Camera / site photos (3 unit + 2 E2E)
 Unit (3): a photo is pinned where it was taken, named for you, cleaned to the plan's precision and stamped, without touching the input floor · renamed, annotated and deleted like anything else, with a missing id and an empty image both refused ·

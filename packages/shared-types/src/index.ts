@@ -34,7 +34,8 @@ export interface Wall {
   locked: boolean;
 }
 
-export type WallKind = 'solid' | 'railing';
+/** 'open' = no wall at all: an open passage between two rooms that stay separate rooms */
+export type WallKind = 'solid' | 'railing' | 'open';
 /** bars = vertical balusters, glass = glazed panel, panel = solid low parapet */
 export type RailingStyle = 'bars' | 'glass' | 'panel';
 

@@ -60,6 +60,7 @@ export function Inspector() {
           <Stat label={t('ceilingArea')} value={A(m.ceilingArea)} />
           <Stat label={`${t('doors')} / ${t('windows')}`} value={`${m.doors} / ${m.windows}`} />
           {m.railingLength > 0 && <Stat label={t('railingLength')} value={L(m.railingLength)} testId="room-railing" />}
+          {m.openLength > 0 && <Stat label={t('openLength')} value={L(m.openLength)} testId="room-open" />}
           {m.loweredArea > 0 && <Stat label={t('loweredArea')} value={A(m.loweredArea)} testId="room-lowered" />}
           {m.soffitSideArea > 0 && <Stat label={t('soffitFaces')} value={A(m.soffitSideArea)} />}
         </div>
@@ -84,6 +85,8 @@ export function Inspector() {
                   onClick={() => w && editFloor(w.locked ? 'Release wall' : 'Lock wall', (f) => setWallLocked(f, w.id, !w.locked))}><Icon name={w?.locked ? 'lock' : 'unlock'} size={18} /></button>
                 <button className={`icon-btn ${w?.kind === 'railing' ? 'on' : ''}`} data-testid={`room-wall-${i}-railing`} title={t('railing')} disabled={!w}
                   onClick={() => w && editFloor('Wall type', (f) => updateWall(f, w.id, { kind: w.kind === 'railing' ? 'solid' : 'railing' }))}><Icon name="railing" size={18} /></button>
+                <button className={`icon-btn ${w?.kind === 'open' ? 'on' : ''}`} data-testid={`room-wall-${i}-open`} title={t('openSpace')} disabled={!w}
+                  onClick={() => w && editFloor('Wall type', (f) => updateWall(f, w.id, { kind: w.kind === 'open' ? 'solid' : 'open' }))}><Icon name="openWall" size={18} /></button>
               </div>
             );
           })}
@@ -106,7 +109,7 @@ export function Inspector() {
     return (
       <Panel title={railing ? t('railing') : t('wall')} testId="inspector-wall">
         <SelectField label={t('wallType')} value={w.kind} testId="wall-kind"
-          options={[{ value: 'solid', label: t('solidWall') }, { value: 'railing', label: t('railing') }]}
+          options={[{ value: 'solid', label: t('solidWall') }, { value: 'railing', label: t('railing') }, { value: 'open', label: t('openSpace') }]}
           onChange={(v) => editFloor('Wall type', (f) => updateWall(f, id, { kind: v }))} />
         {railing && <SelectField label={t('railingStyle')} value={w.railingStyle} testId="railing-style"
           options={[{ value: 'bars', label: t('bars') }, { value: 'glass', label: t('glass') }, { value: 'panel', label: t('panel') }]}
@@ -114,6 +117,7 @@ export function Inspector() {
         <LengthField label={`${t('length')} (${t('centerline')})`} value={wm.length} unit={unit} testId="wall-length" locked={w.locked} onCommit={(len, o) => len && editFloor(o?.measured ? 'Measure wall' : 'Wall length', (f) => setWallLength(f, id, len, 'a', { lock: o?.measured }))} />
         <Check label={t('lockedWall')} checked={w.locked} testId="wall-locked" onChange={(v) => editFloor(v ? 'Lock wall' : 'Release wall', (f) => setWallLocked(f, id, v))} />
         {w.locked && <p className="hint-text" data-testid="wall-locked-hint">{t('lockedWallHint')}</p>}
+        {w.kind === 'open' && <p className="hint-text" data-testid="wall-open-hint">{t('openSpaceHint')}</p>}
         {(() => {
           const owner = Object.values(floor.rooms).find((rr) => roomEdgeWalls(floor, rr).some((x, k) => x?.id === id && k >= 0));
           if (!owner) return null;

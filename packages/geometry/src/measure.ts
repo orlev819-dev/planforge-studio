@@ -23,6 +23,8 @@ export interface RoomMetrics {
   edgeLengths: number[];
   /** interior (inside face to inside face) length of each edge */
   netEdgeLengths: number[];
+  /** total length of edges with no wall (open passages) */
+  openLength: number;
   /** interior outline (null when the walls are too thick for the room) */
   insetPoints: Vec2[] | null;
   labelPoint: Vec2;
@@ -42,7 +44,8 @@ export function roomEdgeWalls(f: Floor, r: Room) {
 export function roomMetrics(f: Floor, r: Room): RoomMetrics {
   const pts = roomPoints(f, r);
   const walls = roomEdgeWalls(f, r);
-  const half = walls.map((w) => (w ? w.thickness / 2 : 0));
+  // an open edge has no wall, so the inside face runs all the way to the room's outline
+  const half = walls.map((w) => (w && w.kind !== 'open' ? w.thickness / 2 : 0));
   const inset = insetPolygon(pts, half);
   const grossArea = polygonArea(pts);
   const netArea = inset ? polygonArea(inset) : 0;
@@ -52,8 +55,11 @@ export function roomMetrics(f: Floor, r: Room): RoomMetrics {
   const openingArea = openings.reduce((s, o) => s + o.width * Math.max(0, Math.min(o.height, r.height - o.sill)), 0);
   // railing edges are open: they are not a paintable wall surface
   const netEdge = (i: number) => (inset ? dist(inset[i], inset[(i + 1) % inset.length]) : dist(pts[i], pts[(i + 1) % pts.length]));
-  let railingLength = 0;
-  walls.forEach((w, i) => { if (w?.kind === 'railing') railingLength += netEdge(i); });
+  let railingLength = 0, openLength = 0;
+  walls.forEach((w, i) => {
+    if (w?.kind === 'railing') railingLength += netEdge(i);
+    if (w?.kind === 'open') openLength += netEdge(i);
+  });
   // lowered ceilings: volume above the soffit is not room volume
   const net = inset ?? pts;
   let loweredArea = 0, loweredVolume = 0, soffitSideArea = 0;
@@ -73,9 +79,9 @@ export function roomMetrics(f: Floor, r: Room): RoomMetrics {
     }
   }
   return {
-    loweredArea, soffitSideArea, railingLength,
+    loweredArea, soffitSideArea, railingLength, openLength,
     roomId: r.id, name: r.name, grossArea, netArea, perimeter: perimeter(pts), netPerimeter, height: r.height,
-    volume: netArea * r.height - loweredVolume, ceilingArea: netArea, wallArea: Math.max(0, (netPerimeter - railingLength) * r.height - openingArea), openingArea,
+    volume: netArea * r.height - loweredVolume, ceilingArea: netArea, wallArea: Math.max(0, (netPerimeter - railingLength - openLength) * r.height - openingArea), openingArea,
     doors: openings.filter((o) => o.kind === 'door').length, windows: openings.filter((o) => o.kind === 'window').length,
     edgeLengths: pts.map((p, i) => dist(p, pts[(i + 1) % pts.length])), netEdgeLengths: pts.map((_, i) => netEdge(i)), labelPoint: interiorPoint(pts),
     insetPoints: inset,

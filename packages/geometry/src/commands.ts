@@ -155,6 +155,7 @@ export function validateFloor(f: Floor): void {
     const w = f.walls[o.wallId];
     if (!w) fail('orphan-opening', 'An opening lost its wall.');
     if (w.kind === 'railing') fail('railing-opening', 'A railing cannot hold a door or window. Remove it, or change the railing back to a wall.');
+    if (w.kind === 'open') fail('open-opening', 'There is no wall there to hold a door or window — the passage is already open.');
     const L = wallLength(f, w);
     if (!(o.width > 0) || !(o.height > 0) || o.sill < 0) fail('opening-size', 'Opening size must be positive.');
     if (o.t - o.width / 2 < -1e-6 || o.t + o.width / 2 > L + 1e-6) fail('opening-fit', `A ${o.kind} (${(o.width * 100).toFixed(0)} cm) no longer fits on its wall (${L.toFixed(2)} m).`);
@@ -551,6 +552,10 @@ export function updateWall(prev: Floor, wallId: ID, patch: Partial<Pick<Wall, 't
       if (Object.values(f.openings).some((o) => o.wallId === wallId)) fail('railing-opening', 'Remove the doors/windows on this wall before turning it into a railing.');
       if (patch.height === undefined) w.height = cur.height != null && cur.height <= 2 ? cur.height : DEFAULT_RAILING_HEIGHT;
       if (patch.thickness === undefined) w.thickness = Math.min(cur.thickness, 0.12);
+    } else if (patch.kind === 'open') {
+      // an open passage: the rooms stay separate rooms, there is simply no wall between them
+      if (Object.values(f.openings).some((o) => o.wallId === wallId)) fail('open-opening', 'Remove the doors/windows on this wall before opening the passage.');
+      if (patch.height === undefined) w.height = null;
     } else {
       if (patch.height === undefined) w.height = null;
       if (patch.thickness === undefined && w.thickness < f.defaultWallThickness) w.thickness = f.defaultWallThickness;
@@ -724,10 +729,19 @@ export function closeWallLoop(prev: Floor, wallId: ID, opts: RoomOptions = {}): 
   return null;
 }
 
+/**
+ * Remove a wall. A drawn partition goes away completely; a wall that is an edge of a room cannot
+ * simply vanish (the room would lose its outline), so it becomes an OPEN passage: no wall, no
+ * surface, nothing in 3D — and the rooms on either side stay separate rooms, each keeping its name,
+ * area and finishes. That is how an open-plan kitchen and living room are drawn.
+ */
 export function deleteWall(prev: Floor, wallId: ID): Floor {
   const w = prev.walls[wallId];
   if (!w) fail('missing', 'Wall not found');
-  if (!w.standalone) fail('wall', 'Room walls are removed by deleting the room or its corners.');
+  if (!w.standalone) {
+    if (w.kind === 'open') fail('already-open', 'There is no wall there — the passage is already open.');
+    return updateWall(prev, wallId, { kind: 'open' });
+  }
   const f = copy(prev);
   delete f.walls[wallId];
   for (const o of Object.values(f.openings)) if (o.wallId === wallId) delete f.openings[o.id];

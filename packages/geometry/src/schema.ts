@@ -11,7 +11,7 @@ export const FloorSchema = z.object({
   walls: z.record(z.string(), z.object({
     id, a: id, b: id, thickness: z.number().positive(), height: z.number().positive().nullable(), exterior: z.boolean(),
     exteriorManual: z.boolean(), material: z.string(), standalone: z.boolean(),
-    kind: z.enum(['solid', 'railing']).default('solid'),
+    kind: z.enum(['solid', 'railing', 'open']).default('solid'),
     railingStyle: z.enum(['bars', 'glass', 'panel']).default('bars'),
     locked: z.boolean().default(false),
   })),
