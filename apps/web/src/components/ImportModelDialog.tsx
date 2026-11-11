@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { parseModelFile, buildModelAsset, guessUnit, rawSize, UNIT_SCALE, type ModelUnit } from '../../../../packages/cad-io/src/model-import';
+import { parseModelFile, buildModelAsset, guessUnit, rawSize, UNIT_SCALE, type ModelUnit, type ParsedModel } from '../../../../packages/cad-io/src/model-import';
+import type { ModelFormat } from '../../../../packages/shared-types/src/index';
 import { uid } from '../../../../packages/geometry/src/model';
 import { editProject, setState, setTool, toast, useStore } from '../store';
 import { useT } from '../i18n';
@@ -9,7 +10,7 @@ import { Modal, SelectField } from './fields';
 export function ImportModelDialog({ onClose }: { onClose: () => void }) {
   const { t } = useT();
   const unitLabel = useStore((s) => s.project?.settings.unit ?? 'm');
-  const [file, setFile] = useState<{ name: string; tris: Float32Array; format: 'stl' | 'obj' } | null>(null);
+  const [file, setFile] = useState<({ name: string } & ParsedModel & { format: ModelFormat }) | null>(null);
   const [name, setName] = useState('');
   const [unit, setUnit] = useState<ModelUnit>('mm');
   const [up, setUp] = useState<'y' | 'z'>('z');
@@ -21,9 +22,10 @@ export function ImportModelDialog({ onClose }: { onClose: () => void }) {
     try {
       const r = parseModelFile(f.name, await f.arrayBuffer());
       setFile({ name: f.name, ...r });
-      setName(f.name.replace(/\.(obj|stl)$/i, ''));
+      setName(f.name.replace(/\.(obj|stl|glb|gltf)$/i, ''));
       setUnit(guessUnit(r.tris));
       setUp(r.format === 'stl' ? 'z' : 'y');
+      if (r.groups.length) setColor(r.groups[0].color);
     } catch (e) { toast((e as Error).message, 'error'); setFile(null); }
     finally { setBusy(false); }
   }
@@ -39,7 +41,7 @@ export function ImportModelDialog({ onClose }: { onClose: () => void }) {
     if (!file) return;
     try {
       const id = uid();
-      const asset = buildModelAsset(id, name.trim() || 'Model', file.format, file.tris, { unit, up, color });
+      const asset = buildModelAsset(id, name.trim() || 'Model', file.format, file.tris, { unit, up, color, groups: file.groups });
       if (asset.size.x > 30 || asset.size.y > 30 || asset.size.z > 30) { toast(t('modelTooBig'), 'error'); return; }
       if (editProject('Import model', (p) => ({ ...p, assets: { ...(p.assets ?? {}), [id]: asset } }))) {
         setTool('furniture'); setState({ pendingCatalogId: `asset:${id}` });
@@ -51,10 +53,13 @@ export function ImportModelDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title={t('importModel')} onClose={onClose} testId="model-dialog" footer={<><button className="btn" onClick={onClose}>{t('cancel')}</button><button className="btn primary" data-testid="model-add" disabled={!file || busy} onClick={add}>{t('apply')}</button></>}>
-      <input type="file" data-testid="model-file" accept=".obj,.stl" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }} />
+      <input type="file" data-testid="model-file" accept=".glb,.gltf,.obj,.stl" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }} />
       {busy && <p className="muted">…</p>}
       {file && dims && <>
-        <p className="muted sm">{file.format.toUpperCase()} · {(file.tris.length / 9).toLocaleString()} triangles</p>
+        <p className="muted sm" data-testid="model-info">{file.format.toUpperCase()} · {(file.tris.length / 9).toLocaleString()} triangles{file.groups.length ? ` · ${file.groups.length} ${t('materials')}` : ''}</p>
+        {file.groups.length > 0 && (
+          <div className="swatches" data-testid="model-materials">{file.groups.slice(0, 12).map((g, i) => <span key={i} className="sw" style={{ background: g.color }} title={g.color} />)}</div>
+        )}
         <label className="field"><span>{t('name')}</span><input data-testid="model-name" value={name} onChange={(e) => setName(e.target.value)} /></label>
         <div className="grid2">
           <SelectField label={t('fileUnits')} value={unit} testId="model-unit" options={(['mm', 'cm', 'm', 'in'] as ModelUnit[]).map((u) => ({ value: u, label: u }))} onChange={setUnit} />

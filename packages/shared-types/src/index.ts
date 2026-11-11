@@ -145,14 +145,17 @@ export interface Floor {
 }
 
 /** User-imported 3D model (OBJ/STL) stored with the project. Triangle soup, meters, Y-up, centred, base at y=0. */
+export type ModelFormat = 'obj' | 'stl' | 'glb';
 export interface ModelAsset {
-  id: ID; name: string; format: 'obj' | 'stl'; triangles: number;
+  id: ID; name: string; format: ModelFormat; triangles: number;
   size: { x: number; y: number; z: number };
   /** convex footprint in plan (x, z) meters, for 2D drawings */
   hull: Vec2[];
   color: string;
   /** base64 Float32 triangle positions */
   data: string;
+  /** the model's own materials, as runs of triangles — glTF models keep their colours */
+  groups?: { color: string; start: number; count: number }[];
 }
 
 /** 'centerline' = wall axis to wall axis (structural); 'interior' = inside face to inside face (what a laser measures) */

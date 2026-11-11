@@ -181,6 +181,24 @@ function wallParts(f: Floor, deg: Map<string, number>): MeshPart[] {
 }
 
 const decoded = new Map<string, Float32Array>();
+/**
+ * An imported model. A glTF brings its own materials, so it is drawn in its own colours unless the
+ * object's colour has been changed from the asset's default — then the whole model takes that one.
+ */
+function modelParts(f: Floor, fu: Furniture, a: ModelAsset): MeshPart[] {
+  const whole = modelPart(f, fu, a);
+  const groups = a.groups;
+  if (!groups?.length || fu.color.toLowerCase() !== a.color.toLowerCase()) return [whole];
+  return groups.map((g, i) => ({
+    ...whole,
+    key: `${whole.key}#${i}`,
+    color: hexToRgba(g.color),
+    positions: whole.positions.slice(g.start * 9, (g.start + g.count) * 9),
+    normals: whole.normals.slice(g.start * 9, (g.start + g.count) * 9),
+    indices: Array.from({ length: g.count * 3 }, (_, k) => k),
+  })).filter((p) => p.positions.length > 0);
+}
+
 function modelPart(f: Floor, fu: Furniture, a: ModelAsset): MeshPart {
   let tris = decoded.get(a.id);
   if (!tris) { tris = decodeFloats(a.data); decoded.set(a.id, tris); }
@@ -206,7 +224,7 @@ function furnitureParts(f: Floor, assets: Record<string, ModelAsset> = {}): Mesh
   const out: MeshPart[] = [];
   for (const fu of Object.values(f.furniture)) {
     const asset = fu.meta.modelId ? assets[fu.meta.modelId] : undefined;
-    if (asset) { out.push(modelPart(f, fu, asset)); continue; }
+    if (asset) { out.push(...modelParts(f, fu, asset)); continue; }
     const key = JSON.stringify(['f', fu, f.elevation]);
     const rad = (fu.rotation * Math.PI) / 180, c = Math.cos(rad), s = Math.sin(rad), m = fu.mirrored ? -1 : 1;
     const T = (x: number, y: number): Vec2 => ({ x: fu.x + c * x * m - s * y, y: fu.y + s * x * m + c * y });
