@@ -31,7 +31,7 @@ const TOOLS: { id: Tool; key: TKey; icon: IconName; kbd?: string; primary?: bool
   { id: 'ceiling', key: 'ceiling', icon: 'ceiling', kbd: 'C' },
   { id: 'furniture', key: 'furniture', icon: 'furniture' },
   { id: 'annotation', key: 'annotation', icon: 'note' },
-  { id: 'photo', key: 'photo', icon: 'camera' },
+  { id: 'photo', key: 'photo', icon: 'camera', primary: true },
   { id: 'eraser', key: 'eraser', icon: 'eraser', kbd: 'E' },
 ];
 

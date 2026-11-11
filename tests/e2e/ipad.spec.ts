@@ -105,6 +105,8 @@ test.describe('iPad portrait (820×1180)', () => {
     await newProject(page, 'Chrome');
     await openRoomDialog(page);
     await page.getByTestId('room-create').tap();
+    // the tools used on site are on the bar itself, including the camera
+    await expect(page.getByTestId('tool-photo')).toBeVisible();
     // secondary tools live behind More
     await expect(page.getByTestId('tool-eraser')).toHaveCount(0);
     await page.getByTestId('tool-more').tap();
