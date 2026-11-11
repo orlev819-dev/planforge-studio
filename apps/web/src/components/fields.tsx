@@ -18,8 +18,10 @@ export function useCoarse() {
 const stepFor = (v: number | null) => (v != null && v < 0.3 ? 0.01 : 0.05);
 
 /** Length input in the project's unit (accepts explicit suffixes like 425cm or 12' 6"). Commits meters on Enter/blur. */
-export function LengthField({ label, value, unit, onCommit, testId, min = 0, allowEmpty, placeholder, steppers = true }: {
-  label: string; value: number | null; unit: LengthUnit; onCommit: (m: number | null) => void; testId?: string; min?: number; allowEmpty?: boolean; placeholder?: string; steppers?: boolean;
+export function LengthField({ label, value, unit, onCommit, testId, min = 0, allowEmpty, placeholder, steppers = true, locked = false }: {
+  label: string; value: number | null; unit: LengthUnit; onCommit: (m: number | null, o?: { measured?: boolean }) => unknown; testId?: string; min?: number; allowEmpty?: boolean; placeholder?: string; steppers?: boolean;
+  /** measured and held: shown with a lock, and a laser reading skips over it */
+  locked?: boolean;
 }) {
   const coarse = useCoarse();
   const fmt = (v: number | null) => (v == null ? '' : String(+toUnit(v, unit).toFixed(unit === 'mm' ? 1 : unit === 'cm' ? 2 : 4)));
@@ -29,25 +31,26 @@ export function LengthField({ label, value, unit, onCommit, testId, min = 0, all
     if (text.trim() === '' && allowEmpty) { if (value != null) onCommit(null); return; }
     const m = parseLength(text, unit);
     if (m == null || m < min) { toast(`Invalid length: "${text}"`, 'error'); setText(fmt(value)); return; }
-    if (value == null || Math.abs(m - value) > 1e-9) onCommit(m);
+    // a refused edit (a locked wall, an invalid result) must not leave the typed value on screen
+    if (value == null || Math.abs(m - value) > 1e-9) { if (onCommit(m) === false) setText(fmt(value)); }
   };
   // a laser reading commits straight through this field, so it keeps the field's own meaning
   // (interior vs centerline, which room edge) even when the field no longer has focus
-  const live = useRef({ label, onCommit });
-  live.current = { label, onCommit };
+  const live = useRef({ label, onCommit, locked });
+  live.current = { label, onCommit, locked };
   useEffect(() => {
     if (!testId) return;
-    return registerLaserField(testId, { label: () => live.current.label, commit: (m) => live.current.onCommit(m) });
+    return registerLaserField(testId, { label: () => live.current.label, locked: () => live.current.locked, commit: (m) => live.current.onCommit(m, { measured: true }) !== false });
   }, [testId]);
   const armed = useArmedField() === testId;
   return (
     <label className="field">
       <span>{label}</span>
       <span className="field-input">
-        <input data-testid={testId} data-laser-commit="1" className={armed ? 'laser-armed' : undefined} value={text} placeholder={placeholder} inputMode="decimal"
+        <input data-testid={testId} data-laser-commit="1" className={[armed ? 'laser-armed' : '', locked ? 'locked' : ''].filter(Boolean).join(' ') || undefined} value={text} placeholder={placeholder} inputMode="decimal"
           onFocus={() => testId && armLaserField(testId)}
           onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setText(fmt(value)); (e.target as HTMLInputElement).blur(); } }} />
-        <em>{unitLabel(unit)}</em>
+        <em>{locked ? <Icon name="lock" size={13} /> : unitLabel(unit)}</em>
         {coarse && steppers && (
           <span className="stepper">
             <button type="button" data-testid={testId ? `${testId}-minus` : undefined} aria-label="−" onClick={() => { const v = (value ?? 0) - stepFor(value); if (v >= min) onCommit(+v.toFixed(4)); }}><Icon name="minus" size={16} /></button>

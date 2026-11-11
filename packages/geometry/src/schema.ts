@@ -13,6 +13,7 @@ export const FloorSchema = z.object({
     exteriorManual: z.boolean(), material: z.string(), standalone: z.boolean(),
     kind: z.enum(['solid', 'railing']).default('solid'),
     railingStyle: z.enum(['bars', 'glass', 'panel']).default('bars'),
+    locked: z.boolean().default(false),
   })),
   rooms: z.record(z.string(), z.object({
     id, name: z.string(), vertexIds: z.array(id).min(3), height: z.number().positive(),
@@ -59,7 +60,7 @@ export function migrateProject(p: Project): Project {
     floors: p.floors.map((f) => ({
       ...f,
       ceilingDrops: f.ceilingDrops ?? {},
-      walls: Object.fromEntries(Object.entries(f.walls).map(([k, w]) => [k, { ...w, kind: w.kind ?? 'solid', railingStyle: w.railingStyle ?? 'bars' }])),
+      walls: Object.fromEntries(Object.entries(f.walls).map(([k, w]) => [k, { ...w, kind: w.kind ?? 'solid', railingStyle: w.railingStyle ?? 'bars', locked: w.locked ?? false }])),
     })),
   };
 }

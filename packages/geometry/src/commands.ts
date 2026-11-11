@@ -34,7 +34,7 @@ function collectEdges(f: Floor): Map<string, EdgeInfo> {
 }
 
 function defaultWall(f: Floor, a: ID, b: ID, exterior: boolean): Wall {
-  return { id: uid(), a, b, thickness: f.defaultWallThickness, height: null, exterior, exteriorManual: false, material: 'plaster', standalone: false, kind: 'solid', railingStyle: 'bars' };
+  return { id: uid(), a, b, thickness: f.defaultWallThickness, height: null, exterior, exteriorManual: false, material: 'plaster', standalone: false, kind: 'solid', railingStyle: 'bars', locked: false };
 }
 
 /**
@@ -102,8 +102,29 @@ export function finalize(prev: Floor, next: Floor, beforeValidate?: (f: Floor) =
 
   const out: Floor = { ...next, walls, openings, vertices };
   beforeValidate?.(out);
+  checkLocked(prev, out);
   validateFloor(out);
   return out;
+}
+
+/** How much a locked wall may still change (rounding of the stored coordinates): 1 mm. */
+const LOCK_TOL = 0.001;
+
+/**
+ * A wall measured on site is held at that length: no edit anywhere else in the plan may stretch it.
+ * This is the single guard for every command — dragging a corner, moving a wall, setting a
+ * neighbour's length — so a measurement can only be changed by releasing the wall first.
+ */
+function checkLocked(prev: Floor, next: Floor) {
+  for (const w of Object.values(next.walls)) {
+    if (!w.locked) continue;
+    const before = prev.walls[w.id];
+    if (!before || !before.locked) continue;
+    if (!prev.vertices[before.a] || !prev.vertices[before.b] || !next.vertices[w.a] || !next.vertices[w.b]) continue;
+    const was = wallLength(prev, before), now = wallLength(next, w);
+    if (Math.abs(was - now) > LOCK_TOL)
+      fail('locked', `A wall is locked at ${was.toFixed(2)} m (measured). This change would make it ${now.toFixed(2)} m — release the lock on it first.`);
+  }
 }
 
 export function validateFloor(f: Floor): void {
@@ -388,10 +409,11 @@ export function moveWall(prev: Floor, wallId: ID, offset: number): Floor {
  * direction. Neighbouring walls that are perpendicular at the moving end are translated with it, so
  * rectangles stay rectangles and shared walls stay shared.
  */
-export function setWallLength(prev: Floor, wallId: ID, length: number, anchor: 'a' | 'b' = 'a'): Floor {
+export function setWallLength(prev: Floor, wallId: ID, length: number, anchor: 'a' | 'b' = 'a', opts: { lock?: boolean } = {}): Floor {
   const w = prev.walls[wallId];
   if (!w) fail('missing', 'Wall not found');
   if (!(length >= 0.05)) fail('length', 'Wall length must be at least 5 cm.');
+  if (w.locked) fail('locked', `This wall is locked at ${wallLength(prev, w).toFixed(2)} m (measured). Release it to change it.`);
   const fixedId = anchor === 'a' ? w.a : w.b, movingId = anchor === 'a' ? w.b : w.a;
   const F = pt(prev, fixedId), M = pt(prev, movingId);
   const dir = norm(sub(M, F));
@@ -412,9 +434,69 @@ export function setWallLength(prev: Floor, wallId: ID, length: number, anchor: '
       if (Math.abs(dot(d2, dir)) < 1e-3) { moving.add(nb); queue.push(nb); }
     }
   }
+  // a locked wall may only be carried along as a whole: either both of its corners move, or neither.
+  // Growing the moving set keeps it rigid; where that would have to move the fixed corner, the chain
+  // is cut back instead and the room simply stops being a perfect rectangle — which is what a
+  // measured room looks like.
+  const lockedWalls = Object.values(prev.walls).filter((x) => x.locked && x.id !== wallId);
+  const held = new Set<ID>(); // corners the chain must leave alone, because they hold a locked wall
+  for (let iter = 0; iter <= 2 * lockedWalls.length + 2; iter++) {
+    let changed = false;
+    for (const lw of lockedWalls) {
+      const inA = moving.has(lw.a), inB = moving.has(lw.b);
+      if (inA === inB) continue; // rigid: the locked wall moves as a whole, or not at all
+      const inside = inA ? lw.a : lw.b, outside = inA ? lw.b : lw.a;
+      // cut the chain short rather than drag the locked wall across the plan …
+      if (inside !== movingId) { moving.delete(inside); held.add(inside); changed = true; continue; }
+      // … except at the corner that must move: there the locked wall has to come along, and when it
+      // cannot, the corner is triangulated instead so both measurements hold
+      if (outside === fixedId || held.has(outside)) {
+        const fix = triangulateCorner(prev, wallId, fixedId, movingId, length);
+        if (fix) return opts.lock ? updateWall(fix, wallId, { locked: true }) : fix;
+        fail('locked', 'This change would stretch a locked wall that meets this one. Release that one first.');
+      }
+      moving.add(outside); changed = true;
+    }
+    if (!changed) break;
+  }
   const deltas: Record<ID, Vec2> = {};
   for (const id of moving) deltas[id] = delta;
-  return moveVertices(prev, deltas);
+  const out = moveVertices(prev, deltas);
+  return opts.lock ? updateWall(out, wallId, { locked: true }) : out;
+}
+
+/**
+ * The corner is held by a wall measured earlier, so it cannot simply slide: put it where both
+ * measurements are satisfied — the intersection of the circle of the new length around the fixed
+ * corner and the circle of the locked wall's length around its far corner, taking the solution
+ * nearer to where the corner is now. This is what lets every wall of a room keep its own measured
+ * length instead of the room being forced back into a rectangle. Returns null when the corner is
+ * held by more than one wall, or when the two lengths cannot meet at all.
+ */
+function triangulateCorner(prev: Floor, wallId: ID, fixedId: ID, movingId: ID, length: number): Floor | null {
+  const held = Object.values(prev.walls).filter((x) => x.locked && x.id !== wallId && (x.a === movingId || x.b === movingId));
+  if (held.length !== 1) return null;
+  const lw = held[0];
+  const other = lw.a === movingId ? lw.b : lw.a;
+  if (other === fixedId) return null; // both lengths are between the same two corners
+  const F = pt(prev, fixedId), O = pt(prev, other), M = pt(prev, movingId);
+  const r1 = length, r2 = wallLength(prev, lw);
+  const d = dist(F, O);
+  if (!(d > 1e-9) || d > r1 + r2 - 1e-9 || d < Math.abs(r1 - r2) + 1e-9) return null;
+  const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d);
+  const h2 = r1 * r1 - a * a;
+  if (h2 < 0) return null;
+  const u = scale(sub(O, F), 1 / d);
+  const base = add(F, scale(u, a));
+  const n = scale(perp(u), Math.sqrt(h2));
+  const p1 = add(base, n), p2 = sub(base, n);
+  return moveVertex(prev, movingId, dist(p1, M) <= dist(p2, M) ? p1 : p2);
+}
+
+/** Hold this wall at its measured length (or let it move again). */
+export function setWallLocked(prev: Floor, wallId: ID, locked: boolean): Floor {
+  if (!prev.walls[wallId]) fail('missing', 'Wall not found');
+  return updateWall(prev, wallId, { locked });
 }
 
 /**
@@ -423,7 +505,7 @@ export function setWallLength(prev: Floor, wallId: ID, length: number, anchor: '
  * unchanged by setWallLength, so one pass is exact for orthogonal rooms — angled rooms converge in a
  * couple of iterations. The edge's first corner stays put (or its second with anchor 'b').
  */
-export function setRoomEdgeInteriorLength(prev: Floor, roomId: ID, edgeIndex: number, target: number, anchor: 'a' | 'b' = 'a'): Floor {
+export function setRoomEdgeInteriorLength(prev: Floor, roomId: ID, edgeIndex: number, target: number, anchor: 'a' | 'b' = 'a', opts: { lock?: boolean } = {}): Floor {
   const room0 = prev.rooms[roomId];
   if (!room0) fail('missing', 'Room not found');
   if (!(edgeIndex >= 0 && edgeIndex < room0.vertexIds.length)) fail('edge', 'That wall is not part of the room.');
@@ -437,9 +519,13 @@ export function setRoomEdgeInteriorLength(prev: Floor, roomId: ID, edgeIndex: nu
     const cur = m.netEdgeLengths[edgeIndex];
     if (!(cur > 0)) fail('thickness', 'The walls are too thick for this room.');
     const delta = target - cur;
-    if (Math.abs(delta) < 1e-6) return f;
+    if (Math.abs(delta) < 1e-6) break;
     const startVertex = room.vertexIds[anchor === 'a' ? edgeIndex : (edgeIndex + 1) % room.vertexIds.length];
     f = setWallLength(f, w.id, wallLength(f, w) + delta, w.a === startVertex ? 'a' : 'b');
+  }
+  if (opts.lock) {
+    const w = roomEdgeWalls(f, f.rooms[roomId])[edgeIndex];
+    if (w) f = updateWall(f, w.id, { locked: true });
   }
   return f;
 }
@@ -453,7 +539,7 @@ export function setWallAngle(prev: Floor, wallId: ID, deg: number): Floor {
   return moveVertex(prev, w.b, { x: a.x + Math.cos(r) * L, y: a.y + Math.sin(r) * L });
 }
 
-export function updateWall(prev: Floor, wallId: ID, patch: Partial<Pick<Wall, 'thickness' | 'height' | 'exterior' | 'material' | 'kind' | 'railingStyle'>>): Floor {
+export function updateWall(prev: Floor, wallId: ID, patch: Partial<Pick<Wall, 'thickness' | 'height' | 'exterior' | 'material' | 'kind' | 'railingStyle' | 'locked'>>): Floor {
   const cur = prev.walls[wallId];
   if (!cur) fail('missing', 'Wall not found');
   const f = copy(prev);
@@ -544,7 +630,7 @@ export function addPartitionWall(prev: Floor, p1: Vec2, p2: Vec2, thickness = 0.
     id: uid(), a, b, thickness: kind === 'railing' ? Math.min(thickness, 0.08) : thickness,
     height: opts.height ?? (kind === 'railing' ? DEFAULT_RAILING_HEIGHT : null),
     exterior: false, exteriorManual: false, material: kind === 'railing' ? 'steel' : 'plaster', standalone: true,
-    kind, railingStyle: opts.railingStyle ?? 'bars',
+    kind, railingStyle: opts.railingStyle ?? 'bars', locked: false,
   };
   f.walls[w.id] = w;
   return { floor: finalize(prev, f), wallId: w.id };

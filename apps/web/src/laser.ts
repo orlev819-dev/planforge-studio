@@ -36,7 +36,7 @@ export const useLaser = () => useSyncExternalStore(subscribe, () => st, () => st
 export const useArmedField = () => useSyncExternalStore(subscribe, () => st.armed, () => null);
 
 // ------------------------------------------------------------------ length fields that can receive a reading
-export interface LaserField { label: () => string; commit: (m: number) => void }
+export interface LaserField { label: () => string; commit: (m: number) => boolean; locked?: () => boolean }
 const fields = new Map<string, LaserField>();
 
 /** every LengthField with a test id registers itself here; returns the un-register callback */
@@ -55,12 +55,19 @@ export function armLaserField(id: string | null) {
   if (st.armed !== id || st.armedLabel !== label) set({ armed: id, armedLabel: label });
 }
 
-/** after a reading lands on a room's wall, move on to the next wall of that room */
+/** after a reading lands on a room's wall, move on to the next wall of that room — skipping the
+ *  walls already measured and locked, so a second pass only asks for what is still missing */
 function nextField(id: string): string {
   const m = /^room-wall-(\d+)$/.exec(id);
   if (!m || !st.advance) return id;
   const n = Number(m[1]);
-  return fields.has(`room-wall-${n + 1}`) ? `room-wall-${n + 1}` : fields.has('room-wall-0') ? 'room-wall-0' : id;
+  const count = (() => { let c = 0; while (fields.has(`room-wall-${c}`)) c++; return c; })();
+  for (let k = 1; k <= count; k++) {
+    const cand = `room-wall-${(n + k) % count}`;
+    const f = fields.get(cand);
+    if (f && !f.locked?.()) return cand;
+  }
+  return id;
 }
 
 /** walk the walls of a room reading by reading, or keep every reading on the same field */
@@ -75,7 +82,10 @@ function defaultField(): string | null {
   const f = currentFloor(s);
   const id = s.selection.length === 1 ? s.selection[0] : null;
   if (!id || !f) return null;
-  if (f.rooms[id]) return fields.has('room-wall-0') ? 'room-wall-0' : null;
+  if (f.rooms[id]) {
+    for (let i = 0; fields.has(`room-wall-${i}`); i++) if (!fields.get(`room-wall-${i}`)!.locked?.()) return `room-wall-${i}`;
+    return fields.has('room-wall-0') ? 'room-wall-0' : null;
+  }
   if (f.walls[id]) {
     const interior = s.project?.settings.measure === 'interior';
     if (interior && fields.has('wall-interior-length')) return 'wall-interior-length';
@@ -106,11 +116,11 @@ function fillInput(el: HTMLInputElement, m: number): boolean {
 }
 
 /** apply through the field's own commit, so the project's measure mode and validation apply */
-function commitVia(id: string, m: number): string | null {
+function commitVia(id: string, m: number): string | null | false {
   const field = fields.get(id);
   if (!field) return null;
   const label = field.label();
-  field.commit(m);
+  if (!field.commit(m)) return false; // refused (a locked wall, or an invalid length): keep the aim
   armLaserField(nextField(id));
   return label;
 }
@@ -120,6 +130,7 @@ export function applyReading(m: number): { target: string; label: string } {
   if (active && active.tagName === 'INPUT' && (active.dataset.laserCommit || active.inputMode === 'decimal')) {
     const id = active.dataset.testid;
     const label = id ? commitVia(id, m) : null;
+    if (label === false) return { target: 'refused', label: '' };
     if (label != null) return { target: 'field', label };
     fillInput(active, m);
     return { target: 'field', label: '' };
@@ -127,6 +138,7 @@ export function applyReading(m: number): { target: string; label: string } {
   const armed = st.armed && fields.has(st.armed) ? st.armed : defaultField();
   if (armed) {
     const label = commitVia(armed, m);
+    if (label === false) return { target: 'refused', label: '' };
     if (label != null) return { target: 'field', label };
   }
   if (canvasHandler?.(m)) return { target: 'drawing', label: '' };
@@ -152,6 +164,7 @@ export async function connectLaser() {
       set({ last: { m, at: Date.now(), target } });
       const unit = getState().project?.settings.unit ?? 'm';
       const where = label ? ` → ${label}` : target === 'none' ? ' — tap a length field, or select a room or wall, to apply' : '';
+      if (target === 'refused') return; // the refusal already said why; a second toast would hide it
       toast(`📏 ${formatLength(m, unit, 3)}${where}`);
     },
   });

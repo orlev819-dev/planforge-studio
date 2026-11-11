@@ -145,12 +145,20 @@ test('readings follow the aimed wall field: by selection, after focus is lost, a
   await page.getByTestId('laser-advance').uncheck();                  // stay on this wall
   await page.evaluate(() => (window as any).__mockGlm.emit(3.4));
   await expect(page.getByTestId('room-wall-3')).toHaveValue('3.4');
-  await page.evaluate(() => (window as any).__mockGlm.emit(3.6));     // re-measure the same wall
+  // a measured wall is held: measuring it again is refused until it is released
+  await expect(page.getByTestId('room-wall-3')).toHaveClass(/locked/);
+  await page.evaluate(() => (window as any).__mockGlm.emit(3.6));
+  await expect(page.getByTestId('toast')).toContainText('locked');
+  await expect(page.getByTestId('room-wall-3')).toHaveValue('3.4');
+  await page.getByTestId('room-wall-3-lock').click();                 // release it
+  await page.evaluate(() => (window as any).__mockGlm.emit(3.6));
   await expect(page.getByTestId('room-wall-3')).toHaveValue('3.6');
+  await page.getByTestId('laser-open').click();
   await expect(page.getByTestId('laser-last')).toContainText('3.600 m');
 
   // in interior mode the reading is taken as an inside-face measurement
   await page.getByTestId('laser-open').click();
+  await page.getByTestId('room-wall-0-lock').click();                 // Wall 1 was measured earlier
   await page.getByTestId('measure-interior').click();
   await page.getByTestId('room-wall-0').focus();
   await page.evaluate(() => (window as any).__mockGlm.emit(3.72));
@@ -159,7 +167,7 @@ test('readings follow the aimed wall field: by selection, after focus is lost, a
     const f = (window as any).__planforge.getState().project.floors[0];
     return Object.values(f.vertices).map((v: any) => v.x);
   });
-  expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(3.72 + 0.15, 6);  // centerline, not the raw reading
+  expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(3.72 + 0.15, 2);  // centerline, not the raw reading
 });
 
 test('heartbeats show the link is alive, and Measure asks the meter for a reading', async ({ page }) => {

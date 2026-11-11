@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 65 / 65 passed |
+| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 74 / 74 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 25 / 25 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 26 / 26 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -33,6 +33,15 @@ a self-crossing ring is refused · a partition drawn across a room does not sile
 E2E (2): tap/click 4 corners back onto the first → room panel with 14.00 m², 4 wall rows, all walls exterior, draw bar gone →
 one undo removes room + closing wall, redo restores → 3 walls onto the room's right-hand wall → second room 7.00 m²,
 7 walls, 1 interior → an open chain stays walls → both rooms survive a reload. Railing ring → 4.50 m² balcony.
+
+## Measured (locked) walls (9 unit + 1 E2E)
+Unit (9): without a lock, setting one wall still squares the room up (unchanged behaviour) · a locked 4.18 m wall holds while the opposite wall is set to 4.05, the side taking up the difference ·
+all four walls of a room keep their own measurements (4.18 / 3.46 / 4.05 / 3.52) · a locked wall refuses both the centerline and the interior setter until released ·
+no other edit may stretch it either (a corner drag is refused; sliding both corners together is allowed) · a corner held by a measured wall is triangulated so both lengths come out exact ·
+measurements that cannot physically meet are refused and nothing moves · interior measurements lock the same way and survive save/load, and a project saved before locks existed loads with every wall free ·
+a lock blocks the length only, not thickness or anything else.
+E2E (1): type 4.18 on Wall 1 → Wall 3 follows (no lock) → lock Wall 1 → set Wall 3 to 4.05 → both hold → editing Wall 1 is refused with a message and the field snaps back →
+lock and measure all four → 4.18 / 3.46 / 4.05 / 3.52 → survives a reload with three walls still locked.
 
 ## Laser unit tests (7)
 Checksum and command frames reproduce the published captures byte for byte (`C0 55 02 01 00 1A`, `C0 56 01 00 1E`, `C0 40 00 EE`, heartbeat CRC `3A`) · the two captured measurement frames decode to 1.8251 m and 1.5144 m · heartbeats, laser-state and failure events, truncated frames, NaN, negative and out-of-range values are all rejected · frame parser: two frames in one indication, one frame split over two, wrong checksum reported not used, replies (status | length | data | CRC) · driver against a mock GATT: subscribe, status request written **with response**, heartbeat counted without a reading, results emitted (kinds 06 and 0A), Measure sends `C0 56 01 00 1E`, disconnect · the status reply's current display value is not emitted as a new measurement · a write that needs a response falls back to write-without-response.

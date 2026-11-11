@@ -30,6 +30,8 @@ export interface Wall {
   /** 'railing' = balcony/stair railing: low, open, never reaches the ceiling */
   kind: WallKind;
   railingStyle: RailingStyle;
+  /** measured on site: its length is held, and no other edit may change it until it is released */
+  locked: boolean;
 }
 
 export type WallKind = 'solid' | 'railing';

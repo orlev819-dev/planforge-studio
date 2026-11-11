@@ -754,6 +754,17 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     paintPrims(ctx, prims, v, { hidden, highlight: new Set(selection), dark });
 
     const S = (p: Vec2) => toScreen(v, p);
+    // measured walls carry a small padlock at their midpoint (screen only — never in an export)
+    if (!hidden.has('walls')) for (const w of Object.values(shown.walls)) {
+      if (!w.locked) continue;
+      const { a, b } = wallEnds(shown, w);
+      const c = S({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      const n = perp(norm(sub(b, a)));
+      const x = c.x + n.x * 13, y = c.y + n.y * 13;
+      ctx.strokeStyle = '#e8590c'; ctx.fillStyle = dark ? '#15171c' : '#fff'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.rect(x - 4, y - 1, 8, 7); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y - 1, 2.6, Math.PI, 0); ctx.stroke();
+    }
     // selection handles
     const handle = (p: Vec2, color = '#1d7cf2', size = coarse ? 13 : 7) => { const s = S(p); ctx.fillStyle = '#fff'; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.fillRect(s.x - size / 2, s.y - size / 2, size, size); ctx.strokeRect(s.x - size / 2, s.y - size / 2, size, size); };
     for (const id of selection) {

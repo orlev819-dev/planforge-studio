@@ -3,7 +3,7 @@ import type { Floor, Opening } from '../../../../packages/shared-types/src/index
 import {
   roomMetrics, floorMetrics, wallMetrics, formatArea, formatLength, formatVolume, setWallLength, setWallAngle, updateWall, updateRoom, updateOpening,
   updateFurniture, moveVertex, roomEdgeWalls, rotateRoom, deleteEntity, addOpening, mergeRooms, splitRoom, objectToWallDistance, deleteCorner, mergeWallsAt,
-  updateFloorProps, wallLength, dist, updateCeilingDrop, ceilingAbove, setRoomEdgeInteriorLength,
+  updateFloorProps, wallLength, dist, updateCeilingDrop, ceilingAbove, setRoomEdgeInteriorLength, setWallLocked,
 } from '../../../../packages/geometry/src/index';
 import { editFloor, editProject, getState, select, setTool, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
@@ -73,10 +73,12 @@ export function Inspector() {
             const len = (interior ? m.netEdgeLengths[i] : m.edgeLengths[i]) ?? m.edgeLengths[i] ?? null;
             return (
               <div className="wall-row" key={w?.id ?? `edge-${i}`}>
-                <LengthField label={`${w?.kind === 'railing' ? t('railing') : t('wall')} ${i + 1}`} value={len} unit={unit} testId={`room-wall-${i}`}
-                  onCommit={(v) => v && editFloor('Wall length', (f) => (interior || !w
-                    ? setRoomEdgeInteriorLength(f, id, i, v)
-                    : setWallLength(f, w.id, v, w.a === r.vertexIds[i] ? 'a' : 'b')))} />
+                <LengthField label={`${w?.kind === 'railing' ? t('railing') : t('wall')} ${i + 1}`} value={len} unit={unit} testId={`room-wall-${i}`} locked={!!w?.locked}
+                  onCommit={(v, o) => v && editFloor(o?.measured ? 'Measure wall' : 'Wall length', (f) => (interior || !w
+                    ? setRoomEdgeInteriorLength(f, id, i, v, 'a', { lock: o?.measured })
+                    : setWallLength(f, w.id, v, w.a === r.vertexIds[i] ? 'a' : 'b', { lock: o?.measured })))} />
+                <button className={`icon-btn ${w?.locked ? 'on' : ''}`} data-testid={`room-wall-${i}-lock`} title={w?.locked ? t('releaseWall') : t('lockWall')} disabled={!w}
+                  onClick={() => w && editFloor(w.locked ? 'Release wall' : 'Lock wall', (f) => setWallLocked(f, w.id, !w.locked))}><Icon name={w?.locked ? 'lock' : 'unlock'} size={18} /></button>
                 <button className={`icon-btn ${w?.kind === 'railing' ? 'on' : ''}`} data-testid={`room-wall-${i}-railing`} title={t('railing')} disabled={!w}
                   onClick={() => w && editFloor('Wall type', (f) => updateWall(f, w.id, { kind: w.kind === 'railing' ? 'solid' : 'railing' }))}><Icon name="railing" size={18} /></button>
               </div>
@@ -105,14 +107,16 @@ export function Inspector() {
         {railing && <SelectField label={t('railingStyle')} value={w.railingStyle} testId="railing-style"
           options={[{ value: 'bars', label: t('bars') }, { value: 'glass', label: t('glass') }, { value: 'panel', label: t('panel') }]}
           onChange={(v) => editFloor('Railing style', (f) => updateWall(f, id, { railingStyle: v }))} />}
-        <LengthField label={`${t('length')} (${t('centerline')})`} value={wm.length} unit={unit} testId="wall-length" onCommit={(len) => len && editFloor('Wall length', (f) => setWallLength(f, id, len))} />
+        <LengthField label={`${t('length')} (${t('centerline')})`} value={wm.length} unit={unit} testId="wall-length" locked={w.locked} onCommit={(len, o) => len && editFloor(o?.measured ? 'Measure wall' : 'Wall length', (f) => setWallLength(f, id, len, 'a', { lock: o?.measured }))} />
+        <Check label={t('lockedWall')} checked={w.locked} testId="wall-locked" onChange={(v) => editFloor(v ? 'Lock wall' : 'Release wall', (f) => setWallLocked(f, id, v))} />
+        {w.locked && <p className="hint-text" data-testid="wall-locked-hint">{t('lockedWallHint')}</p>}
         {(() => {
           const owner = Object.values(floor.rooms).find((rr) => roomEdgeWalls(floor, rr).some((x, k) => x?.id === id && k >= 0));
           if (!owner) return null;
           const k = roomEdgeWalls(floor, owner).findIndex((x) => x?.id === id);
           const mm = roomMetrics(floor, owner);
-          return <LengthField label={`${t('length')} (${t('interiorMeasure')} · ${owner.name})`} value={mm.netEdgeLengths[k]} unit={unit} testId="wall-interior-length"
-            onCommit={(len) => len && editFloor('Interior length', (f) => setRoomEdgeInteriorLength(f, owner.id, k, len))} />;
+          return <LengthField label={`${t('length')} (${t('interiorMeasure')} · ${owner.name})`} value={mm.netEdgeLengths[k]} unit={unit} testId="wall-interior-length" locked={w.locked}
+            onCommit={(len, o) => len && editFloor(o?.measured ? 'Measure wall' : 'Interior length', (f) => setRoomEdgeInteriorLength(f, owner.id, k, len, 'a', { lock: o?.measured }))} />;
         })()}
         <NumberField label={t('angle')} value={+wm.angle.toFixed(2)} suffix="°" step={0.5} onCommit={(a) => editFloor('Wall angle', (f) => setWallAngle(f, id, a))} />
         <LengthField label={t('thickness')} value={w.thickness} unit={unit} testId="wall-thickness" onCommit={(v) => v && editFloor('Wall thickness', (f) => updateWall(f, id, { thickness: v }))} />
