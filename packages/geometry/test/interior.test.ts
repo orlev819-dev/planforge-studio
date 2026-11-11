@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createFloor, createProject, addRectRoom, addRoom, roomMetrics, roomEdgeWalls, setRoomEdgeInteriorLength, updateWall,
-  setWallKind, wallLength, parseProject, migrateProject, addOpening,
+  setWallKind, parseProject, migrateProject, addOpening,
 } from '../src/index';
 import { GeometryError } from '../../shared-types/src/index';
 import { buildDrawing } from '../../cad-io/src/index';

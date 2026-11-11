@@ -550,6 +550,94 @@ export function addPartitionWall(prev: Floor, p1: Vec2, p2: Vec2, thickness = 0.
   return { floor: finalize(prev, f), wallId: w.id };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Closing a ring of walls into a room
+// ---------------------------------------------------------------------------------------------
+
+const TAU = Math.PI * 2;
+
+/** corner -> the corners it is joined to by a wall (room walls included) */
+function wallGraph(f: Floor): Map<ID, ID[]> {
+  const m = new Map<ID, Set<ID>>();
+  const link = (from: ID, to: ID) => { const s = m.get(from); if (s) s.add(to); else m.set(from, new Set([to])); };
+  for (const w of Object.values(f.walls)) {
+    if (w.a === w.b || !f.vertices[w.a] || !f.vertices[w.b]) continue;
+    link(w.a, w.b); link(w.b, w.a);
+  }
+  return new Map([...m].map(([k, s]) => [k, [...s]]));
+}
+
+/**
+ * Walk the face of the wall graph that lies on one side of the half-edge u0 -> v0, by always taking
+ * the tightest turn at each corner. Returns the face's corners, or null if it does not close into a
+ * simple ring (an open chain, or a corner visited twice).
+ */
+function traceFace(f: Floor, adj: Map<ID, ID[]>, u0: ID, v0: ID): ID[] | null {
+  const ring: ID[] = [];
+  let u = u0, v = v0;
+  for (let guard = 0; guard < 1024; guard++) {
+    ring.push(u);
+    const ns = adj.get(v);
+    if (!ns?.length) return null;
+    const P = pt(f, v);
+    const base = Math.atan2(pt(f, u).y - P.y, pt(f, u).x - P.x);
+    let next: ID | null = null, tightest = Infinity;
+    for (const n of ns) {
+      if (n === u && ns.length > 1) continue; // only turn back at a dead end
+      const Q = pt(f, n);
+      let turn = (base - Math.atan2(Q.y - P.y, Q.x - P.x)) % TAU;
+      if (turn <= 1e-9) turn += TAU; // measured from the way we came in, never zero
+      if (turn < tightest) { tightest = turn; next = n; }
+    }
+    if (!next) return null;
+    if (v === u0 && next === v0) return new Set(ring).size === ring.length && ring.length >= 3 ? ring : null;
+    u = v; v = next;
+  }
+  return null;
+}
+
+/**
+ * The rings of walls that `wallId` closes — the faces of the wall graph on either side of it,
+ * smallest first. Empty when the wall closes nothing (it is part of an open chain).
+ */
+export function wallLoops(f: Floor, wallId: ID): ID[][] {
+  const w = f.walls[wallId];
+  if (!w) return [];
+  const adj = wallGraph(f);
+  const faces: ID[][] = [];
+  for (const [u, v] of [[w.a, w.b], [w.b, w.a]] as const) {
+    const ring = traceFace(f, adj, u, v);
+    if (!ring) continue;
+    if (faces.some((o) => o.length === ring.length && o.every((id) => ring.includes(id)))) continue;
+    faces.push(ring);
+  }
+  const area = (ring: ID[]) => Math.abs(signedArea(ring.map((id) => pt(f, id))));
+  return faces.filter((r) => area(r) > 1e-6).sort((a, b) => area(a) - area(b));
+}
+
+/** The tightest ring of walls closed by `wallId`, or null when it closes none. */
+export function wallLoopAt(f: Floor, wallId: ID): ID[] | null {
+  return wallLoops(f, wallId)[0] ?? null;
+}
+
+/**
+ * Turn the ring of walls closed by `wallId` into a room. The walls themselves are kept — finalize()
+ * promotes a partition that coincides with a room edge, so their thickness, height and railing
+ * settings carry over, and a ring closed against an existing room shares that room's wall. Returns
+ * null when the wall closes no ring, or when no ring can become a room (self-intersecting, or it
+ * would overlap an existing room); the caller then keeps the walls as they are.
+ */
+export function closeWallLoop(prev: Floor, wallId: ID, opts: RoomOptions = {}): { floor: Floor; roomId: ID } | null {
+  for (const ring of wallLoops(prev, wallId)) {
+    try {
+      return addRoom(prev, ring.map((id) => pt(prev, id)), opts);
+    } catch (e) {
+      if (!(e instanceof GeometryError)) throw e;
+    }
+  }
+  return null;
+}
+
 export function deleteWall(prev: Floor, wallId: ID): Floor {
   const w = prev.walls[wallId];
   if (!w) fail('missing', 'Wall not found');

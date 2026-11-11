@@ -26,6 +26,7 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | Rooms | rectangle, freeform polygon, L/irregular/angled, connected (shared walls, T-junctions), exact-dimension dialog, attach to side | ✅ |
 | Rooms | internal cutouts (holes) | ❌ |
 | Ceilings | lowered ceiling / soffit zones: draw (tool `C`), move, size, rotate, height validated below room ceiling; 2D hatch + label, PDF/SVG/DXF (layer CEILINGS), 3D block; room volume reduced, lowered area + soffit side faces reported | ✅ |
+| Closing walls into a room | a drawn wall that closes a ring of walls turns the enclosed area into a room in the same undoable step: the walls are kept (thickness, height, railing style carry over), a ring closed against an existing room shares that room's wall, and a ring that would overlap a room or crosses itself stays plain walls; also available as **Make a room from these walls** on a wall's context menu (right-click / long-press) | ✅ |
 | Geometry edits | move/insert/delete corner, wall length and angle, move wall, split wall, merge collinear walls, split room, merge rooms, move/rotate room, validation messages | ✅ |
 | Walls | thickness, height (auto/override), exterior/interior (auto + manual), material, partition walls | ✅ |
 | Walls | partial-height walls | 🟡 (height override works; no dedicated UI preset) |

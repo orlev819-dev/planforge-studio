@@ -10,6 +10,7 @@ import {
   addAnnotation, addDimension, addFurniture, addOpening, addPartitionWall, addRoom, deleteEntity, dist, formatLength, furnitureCorners, insertCorner,
   moveRoom, moveVertex, moveWall, norm, openingGeometry, perp, pointInPolygon, projectOnSegment, roomPoints, sub, updateFurniture, updateOpening,
   wallEnds, rotateRoom, objectToWallDistance, addCeilingDrop, updateCeilingDrop, ceilingAbove, deleteCorner, mergeWallsAt, signedArea, polygonArea, formatArea, bbox, parseLength,
+  closeWallLoop, wallLoopAt,
 } from '../../../../packages/geometry/src/index';
 import { buildDrawing, drawingBounds, type Layer } from '../../../../packages/cad-io/src/drawing';
 import { catalogById } from '../../../../packages/shared-types/src/catalog';
@@ -246,6 +247,45 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     if (ok && id) select([id]);
   }
 
+  const roomName = (f: Floor) => `${lang === 'he' ? 'חדר' : 'Room'} ${Object.keys(f.rooms).length + 1}`;
+
+  /**
+   * Draw the next wall of the chain. When that wall closes a ring of drawn walls the enclosed area
+   * becomes a room right away (and the chain ends); the walls are kept, so their thickness and
+   * railing settings carry into the room. Used by the pointer, the keyboard, the length bar and the
+   * laser, so closing works the same way however the corner was placed.
+   */
+  function drawWallTo(p: Vec2, suffix = '') {
+    const start = wallStart;
+    if (!start) { setWallStart(p); return; }
+    if (dist(start, p) < 0.05) return;
+    let roomId: ID | null = null;
+    const ok = editFloor((getState().tool === 'railing' ? 'Draw railing' : 'Draw wall') + suffix, (f) => {
+      const r = addPartitionWall(f, start, p, undefined, partOpts());
+      const closed = closeWallLoop(r.floor, r.wallId, { name: roomName(r.floor) });
+      if (!closed) return r.floor;
+      roomId = closed.roomId;
+      return closed.floor;
+    });
+    if (!ok) return;
+    if (roomId) { setWallStart(null); setTyped(''); setBarLen(''); select([roomId]); toast(t('roomClosed')); }
+    else setWallStart(p);
+  }
+
+  /** Make a room out of the ring of drawn walls this wall belongs to (context menu). */
+  function closeLoopAt(wallId: ID) {
+    let id: ID | null = null;
+    let noLoop = false;
+    const ok = editFloor('Close room', (f) => {
+      const r = closeWallLoop(f, wallId, { name: roomName(f) });
+      if (!r) { noLoop = true; return f; }
+      id = r.roomId;
+      return r.floor;
+    });
+    if (noLoop) { toast(t('noLoop'), 'error'); return; }
+    if (ok && id) { select([id]); toast(t('roomClosed')); }
+  }
+
   function deleteSelection() {
     const ids = getState().selection;
     if (!ids.length) return;
@@ -323,7 +363,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
           if (L && L > 0) {
             const d = norm(sub(hover.snap.p, anchor));
             const p = { x: +(anchor.x + d.x * L).toFixed(6), y: +(anchor.y + d.y * L).toFixed(6) };
-            if (wallStart) { editFloor('Draw wall', (f) => addPartitionWall(f, wallStart, p, undefined, partOpts()).floor); setWallStart(p); }
+            if (wallStart) drawWallTo(p);
             else setPoly((ps) => [...ps, p]);
           }
           return;
@@ -359,7 +399,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       const d = norm(sub(hover.snap.p, anchor));
       if (!d.x && !d.y) { setBarLen(String(+L.toFixed(4))); return true; }
       const p = { x: +(anchor.x + d.x * L).toFixed(6), y: +(anchor.y + d.y * L).toFixed(6) };
-      if (wallStart) { if (editFloor('Draw wall (laser)', (f) => addPartitionWall(f, wallStart, p, undefined, partOpts()).floor)) setWallStart(p); }
+      if (wallStart) drawWallTo(p, ' (laser)');
       else setPoly((ps) => [...ps, p]);
       return true;
     });
@@ -373,7 +413,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     const L = parseLength(barLen, getState().project!.settings.unit === 'ft-in' ? 'ft-in' : getState().project!.settings.unit);
     if (!L || L <= 0) { toast(t('enterLength'), 'error'); return; }
     const p = { x: +(anchor.x + dx * L).toFixed(6), y: +(anchor.y + dy * L).toFixed(6) };
-    if (wallStart) { if (editFloor('Draw wall', (f) => addPartitionWall(f, wallStart, p, undefined, partOpts()).floor)) setWallStart(p); }
+    if (wallStart) drawWallTo(p);
     else if (poly.length >= 3 && dist(p, poly[0]) < 1e-3) finishPolygon(poly);
     else setPoly((ps) => [...ps, p]);
     setBarLen('');
@@ -454,8 +494,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       case 'wall': {
         if (!wallStart) { setWallStart(sn.p); return; }
         if (dist(wallStart, sn.p) < 0.05) { setWallStart(null); return; }
-        const ok = editFloor(tool === 'railing' ? 'Draw railing' : 'Draw wall', (f) => addPartitionWall(f, wallStart, sn.p, undefined, partOpts()).floor);
-        if (ok) setWallStart(sn.p);
+        drawWallTo(sn.p);
         return;
       }
       case 'door': case 'window': case 'opening': placeOpening(tool, w); return;
@@ -825,6 +864,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       items.push({ label: t('door'), run: () => editFloor('Add door', (f) => addOpening(f, h.id, 'door', h.t, { width: getState().openingDefaults.door }).floor) });
       items.push({ label: t('window'), run: () => editFloor('Add window', (f) => addOpening(f, h.id, 'window', h.t, { width: getState().openingDefaults.window }).floor) });
       items.push({ label: t('corner'), run: () => editFloor('Insert corner', (f) => insertCorner(f, h.id, h.t).floor) });
+      if (floor.walls[h.id]?.standalone && wallLoopAt(floor, h.id)) items.push({ label: t('makeRoom'), run: () => closeLoopAt(h.id) });
     }
     if (h.type === 'vertex') { items.push({ label: t('deleteCorner'), run: () => editFloor('Delete corner', (f) => deleteCorner(f, h.id)) }); items.push({ label: t('mergeWalls'), run: () => editFloor('Merge walls', (f) => mergeWallsAt(f, h.id)) }); }
     if (h.type === 'room' || h.type === 'furniture') { items.push({ label: t('rotate90'), run: () => rotateSelection(90) }); items.push({ label: t('duplicate'), run: () => duplicateSelection() }); }
