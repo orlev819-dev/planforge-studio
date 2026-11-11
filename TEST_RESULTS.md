@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 74 / 74 passed |
+| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 81 / 81 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 26 / 26 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 27 / 27 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -33,6 +33,13 @@ a self-crossing ring is refused · a partition drawn across a room does not sile
 E2E (2): tap/click 4 corners back onto the first → room panel with 14.00 m², 4 wall rows, all walls exterior, draw bar gone →
 one undo removes room + closing wall, redo restores → 3 walls onto the room's right-hand wall → second room 7.00 m²,
 7 walls, 1 interior → an open chain stays walls → both rooms survive a reload. Railing ring → 4.50 m² balcony.
+
+## Opening offsets (7 unit + 1 E2E)
+Unit (7): offsets are measured to the opening's edges, not its centre (1.60 / 0.80 / 1.60 on a 4.00 wall) · interior mode runs from the inside faces (span 3.85, 1.525 each side) ·
+setting a measured distance from either end moves the opening and keeps its width · an interior measurement lands on the inside face it was taken from, and follows a side wall that gets thicker ·
+measuring both sides sets the width from the two readings · a distance that would push the opening off its wall is refused and nothing moves · the offsets match where the jambs really are on the plan.
+E2E (1): place a door → panel shows 1.60 / 0.80 / 1.60 → type 0.92 from the corner → the far side becomes 2.28 and the width holds → Interior shows 0.845 and a 3.85 span → 1.10 interior lands at t = 1.575 →
+both-sides mode turns a 1.50 far measurement into a 1.25 window → 9 m is refused and the field snaps back → survives a reload.
 
 ## Measured (locked) walls (9 unit + 1 E2E)
 Unit (9): without a lock, setting one wall still squares the room up (unchanged behaviour) · a locked 4.18 m wall holds while the opposite wall is set to 4.05, the side taking up the difference ·

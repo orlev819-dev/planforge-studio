@@ -10,7 +10,7 @@ import {
   addAnnotation, addDimension, addFurniture, addOpening, addPartitionWall, addRoom, deleteEntity, dist, formatLength, furnitureCorners, insertCorner,
   moveRoom, moveVertex, moveWall, norm, openingGeometry, perp, pointInPolygon, projectOnSegment, roomPoints, sub, updateFurniture, updateOpening,
   wallEnds, rotateRoom, objectToWallDistance, addCeilingDrop, updateCeilingDrop, ceilingAbove, deleteCorner, mergeWallsAt, signedArea, polygonArea, formatArea, bbox, parseLength,
-  closeWallLoop, wallLoopAt,
+  closeWallLoop, wallLoopAt, openingOffsets,
 } from '../../../../packages/geometry/src/index';
 import { buildDrawing, drawingBounds, type Layer } from '../../../../packages/cad-io/src/drawing';
 import { catalogById } from '../../../../packages/shared-types/src/catalog';
@@ -754,6 +754,36 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     paintPrims(ctx, prims, v, { hidden, highlight: new Set(selection), dark });
 
     const S = (p: Vec2) => toScreen(v, p);
+    // the selected opening shows the two distances you measure on site: corner to its near side,
+    // and its far side to the next corner (screen only — never in an export)
+    for (const id of selection) {
+      const op = shown.openings[id];
+      if (!op) continue;
+      const g = openingGeometry(shown, op);
+      const off = openingOffsets(shown, op, settings.measure);
+      const at = (d: number) => ({ x: g.a.x + g.dir.x * d, y: g.a.y + g.dir.y * d });
+      const n = perp(g.dir);
+      const pairs: [Vec2, Vec2, number][] = [
+        [at(off.from), g.start, off.start],
+        [g.end, at(off.to), off.end],
+      ];
+      ctx.save();
+      ctx.strokeStyle = '#1d7cf2'; ctx.fillStyle = '#1d7cf2'; ctx.lineWidth = 1; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+      for (const [p0, p1, value] of pairs) {
+        if (!(value > 0.001)) continue;
+        const o0 = S({ x: p0.x + n.x * 0.35, y: p0.y + n.y * 0.35 }), o1 = S({ x: p1.x + n.x * 0.35, y: p1.y + n.y * 0.35 });
+        ctx.beginPath(); ctx.moveTo(o0.x, o0.y); ctx.lineTo(o1.x, o1.y);
+        const t0 = S(p0), t1 = S(p1);
+        ctx.moveTo(t0.x, t0.y); ctx.lineTo(o0.x, o0.y); ctx.moveTo(t1.x, t1.y); ctx.lineTo(o1.x, o1.y);
+        ctx.stroke();
+        const mid = { x: (o0.x + o1.x) / 2, y: (o0.y + o1.y) / 2 };
+        const label = formatLength(value, settings.unit, settings.precision);
+        const w = ctx.measureText(label).width;
+        ctx.fillStyle = dark ? '#15171c' : '#fff'; ctx.fillRect(mid.x - w / 2 - 3, mid.y - 8, w + 6, 14);
+        ctx.fillStyle = '#1d7cf2'; ctx.fillText(label, mid.x, mid.y + 3);
+      }
+      ctx.restore();
+    }
     // measured walls carry a small padlock at their midpoint (screen only — never in an export)
     if (!hidden.has('walls')) for (const w of Object.values(shown.walls)) {
       if (!w.locked) continue;

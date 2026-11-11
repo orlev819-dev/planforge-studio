@@ -3,7 +3,7 @@ import type { Floor, Opening } from '../../../../packages/shared-types/src/index
 import {
   roomMetrics, floorMetrics, wallMetrics, formatArea, formatLength, formatVolume, setWallLength, setWallAngle, updateWall, updateRoom, updateOpening,
   updateFurniture, moveVertex, roomEdgeWalls, rotateRoom, deleteEntity, addOpening, mergeRooms, splitRoom, objectToWallDistance, deleteCorner, mergeWallsAt,
-  updateFloorProps, wallLength, dist, updateCeilingDrop, ceilingAbove, setRoomEdgeInteriorLength, setWallLocked,
+  updateFloorProps, wallLength, dist, updateCeilingDrop, ceilingAbove, setRoomEdgeInteriorLength, setWallLocked, openingOffsets, setOpeningOffset,
 } from '../../../../packages/geometry/src/index';
 import { editFloor, editProject, getState, select, setTool, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
@@ -13,6 +13,8 @@ import { LengthField, NumberField, TextField, SelectField, Check, Stat, MATERIAL
 
 export function Inspector() {
   const { t } = useT();
+  // when on, measuring one side of an opening holds the other edge, so the width follows the two measurements
+  const [widthFromBoth, setWidthFromBoth] = useState(false);
   const project = useStore((s) => s.project)!;
   const floor = useStore((s) => currentFloor(s))!;
   const selection = useStore((s) => s.selection);
@@ -146,8 +148,29 @@ export function Inspector() {
         <LengthField label={t('width')} value={o.width} unit={unit} testId="opening-width" onCommit={(v) => v && set({ width: v })} />
         <LengthField label={t('objHeight')} value={o.height} unit={unit} testId="opening-height" onCommit={(v) => v && set({ height: v })} />
         {o.kind !== 'door' && <LengthField label={t('sill')} value={o.sill} unit={unit} testId="opening-sill" onCommit={(v) => v != null && set({ sill: v })} />}
-        <LengthField label={t('offset')} value={o.t - o.width / 2} unit={unit} testId="opening-offset" onCommit={(v) => v != null && set({ t: v + o.width / 2 })} />
-        <div className="hint-text">{t('wall')}: {L(wl)}</div>
+        {(() => {
+          const measure = project.settings.measure;
+          const off = openingOffsets(floor, o, measure);
+          const place = (side: 'start' | 'end', v: number) =>
+            editFloor('Position opening', (f) => setOpeningOffset(f, id, side, v, { measure, keepWidth: !widthFromBoth }));
+          return (
+            <>
+              <div className="walls-head">
+                <h4>{t('position')}</h4>
+                <div className="seg sm" role="tablist" aria-label={t('measureMode')}>
+                  <button role="tab" data-testid="opening-measure-centerline" className={measure === 'interior' ? '' : 'on'}
+                    onClick={() => editProject('Measure mode', (p) => ({ ...p, settings: { ...p.settings, measure: 'centerline' } }))}>{t('centerline')}</button>
+                  <button role="tab" data-testid="opening-measure-interior" className={measure === 'interior' ? 'on' : ''}
+                    onClick={() => editProject('Measure mode', (p) => ({ ...p, settings: { ...p.settings, measure: 'interior' } }))}>{t('interiorMeasure')}</button>
+                </div>
+              </div>
+              <LengthField label={t('offsetStart')} value={off.start} unit={unit} testId="opening-from-start" onCommit={(v) => v != null && place('start', v)} />
+              <LengthField label={t('offsetEnd')} value={off.end} unit={unit} testId="opening-to-end" onCommit={(v) => v != null && place('end', v)} />
+              <Check label={t('widthFromBoth')} checked={widthFromBoth} testId="opening-width-from-both" onChange={setWidthFromBoth} />
+              <div className="hint-text" data-testid="opening-span">{t('clearSpan')}: {L(off.span)} · {t('wall')}: {L(wl)}</div>
+            </>
+          );
+        })()}
         {o.kind === 'door' && <>
           <SelectField label={t('hinge')} value={o.hinge} options={[{ value: 'start', label: 'start' }, { value: 'end', label: 'end' }]} onChange={(v) => set({ hinge: v })} />
           <button className="btn" onClick={() => set({ side: o.side === 1 ? -1 : 1 }, 'Flip door')}>{t('flip')} ({t('swing')})</button>

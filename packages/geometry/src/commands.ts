@@ -8,7 +8,7 @@ import { GeometryError } from '../../shared-types/src/index';
 import { add, cleanPt, dist, dot, norm, perp, projectOnSegment, rotate, samePoint, scale, sub, MERGE_TOL, clean, segmentsProperlyIntersect } from './vec';
 import { centroid, pointInPolygon, polygonsOverlap, signedArea, validatePolygon, bbox, interiorPoint } from './polygon';
 import { DEFAULT_RAILING_HEIGHT, edgeKey, furnitureCorners, openingGeometry, pt, roomPoints, uid, wallEnds, wallHeight, wallLength } from './model';
-import { roomEdgeWalls, roomMetrics } from './measure';
+import { roomEdgeWalls, roomMetrics, openingOffsets } from './measure';
 
 const fail = (code: string, msg: string): never => { throw new GeometryError(code, msg); };
 const copy = <T>(x: T): T => structuredClone(x);
@@ -765,6 +765,33 @@ export function updateOpening(prev: Floor, id: ID, patch: Partial<Omit<Opening, 
   const f = copy(prev);
   f.openings[id] = { ...f.openings[id], ...patch };
   return finalize(prev, f);
+}
+
+/**
+ * Position an opening by a distance measured to one of its EDGES: from the corner to the near side
+ * of the door, or from its far side to the next corner — the two measurements taken on site. In
+ * interior mode the distance runs from the inside face of the wall at that end.
+ * `keepWidth: false` moves the opposite edge instead, so measuring both sides of a window sets its
+ * width from what was actually measured.
+ */
+export function setOpeningOffset(
+  prev: Floor, id: ID, side: 'start' | 'end', distance: number,
+  opts: { measure?: 'centerline' | 'interior'; keepWidth?: boolean } = {},
+): Floor {
+  const o = prev.openings[id];
+  if (!o) fail('missing', 'Opening not found');
+  if (!(distance >= 0)) fail('offset', 'A distance to the wall cannot be negative.');
+  const off = openingOffsets(prev, o, opts.measure ?? 'centerline');
+  if (opts.keepWidth === false) {
+    // hold the opposite edge and move this one: the measured width follows
+    const far = side === 'start' ? off.to - off.end : off.from + off.start;
+    const near = side === 'start' ? off.from + distance : off.to - distance;
+    const width = Math.abs(far - near);
+    if (!(width >= 0.05)) fail('opening-size', 'That leaves the opening narrower than 5 cm.');
+    return updateOpening(prev, id, { width, t: (far + near) / 2 });
+  }
+  const t = side === 'start' ? off.from + distance + o.width / 2 : off.to - distance - o.width / 2;
+  return updateOpening(prev, id, { t });
 }
 
 export function deleteOpening(prev: Floor, id: ID): Floor {

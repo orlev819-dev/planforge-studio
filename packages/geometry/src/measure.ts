@@ -108,6 +108,51 @@ export function wallMetrics(f: Floor, wallId: ID) {
   return { length: L, angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI, height: h, sideArea: Math.max(0, L * h - opArea), openingArea: opArea, volume: L * h * w.thickness };
 }
 
+export interface OpeningOffsets {
+  /** the span the offsets are measured along: the whole wall, or its clear inside face in interior mode */
+  span: number;
+  /** where that span starts and ends along the wall's own direction, from its first corner */
+  from: number;
+  to: number;
+  /** clear distance from the start of the span to the near edge of the opening */
+  start: number;
+  /** clear distance from the far edge of the opening to the end of the span */
+  end: number;
+  width: number;
+  /** true when the span is the room's inside face rather than the wall centerline */
+  interior: boolean;
+}
+
+/**
+ * Where an opening sits on its wall, measured to its EDGES rather than its centre — the two
+ * distances a tape or a laser actually gives you on site: corner to the near side of the door, and
+ * the far side of the door to the next corner. In interior mode they run from the inside faces of
+ * the walls at each end, which is what you measure in the room.
+ */
+export function openingOffsets(f: Floor, o: Opening, measure: 'centerline' | 'interior' = 'centerline'): OpeningOffsets {
+  const g = openingGeometry(f, o);
+  let from = 0, to = g.length;
+  if (measure === 'interior') {
+    for (const r of Object.values(f.rooms)) {
+      const k = roomEdgeWalls(f, r).findIndex((w) => w?.id === o.wallId);
+      if (k < 0) continue;
+      const inset = roomMetrics(f, r).insetPoints;
+      if (!inset) break;
+      const A = inset[k], B = inset[(k + 1) % inset.length];
+      const pa = (A.x - g.a.x) * g.dir.x + (A.y - g.a.y) * g.dir.y;
+      const pb = (B.x - g.a.x) * g.dir.x + (B.y - g.a.y) * g.dir.y;
+      from = Math.min(pa, pb); to = Math.max(pa, pb);
+      break;
+    }
+  }
+  return {
+    span: to - from, from, to, width: o.width,
+    start: o.t - o.width / 2 - from,
+    end: to - (o.t + o.width / 2),
+    interior: measure === 'interior',
+  };
+}
+
 /** Clear distance from an object's footprint to the nearest wall face (meters). */
 export function objectToWallDistance(f: Floor, furnitureId: ID): { distance: number; wallId: ID | null } {
   const fu = f.furniture[furnitureId];
