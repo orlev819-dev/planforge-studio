@@ -3,6 +3,8 @@ import { updateFloorProps } from '../../../../packages/geometry/src/index';
 import { editProject, setTool, useStore, currentFloor, toast } from '../store';
 import { useT } from '../i18n';
 import { Modal } from './fields';
+import { CameraDialog } from './CameraDialog';
+import { Icon } from './Icon';
 import { pdfWorkerUrl } from 'virtual:pdf-worker';
 
 type PdfDoc = { numPages: number; getPage: (n: number) => Promise<{ getViewport: (o: { scale: number }) => { width: number; height: number }; render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> } }> };
@@ -34,6 +36,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const [page, setPage] = useState(1);
   const [preview, setPreview] = useState<{ url: string; w: number; h: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [camera, setCamera] = useState(false);
 
   async function onFile(f: File) {
     setBusy(true);
@@ -70,6 +73,10 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   return (
     <Modal title={t('importPlan')} onClose={onClose} testId="import-dialog" footer={<><button className="btn" onClick={onClose}>{t('cancel')}</button><button className="btn primary" disabled={!preview || busy} onClick={place} data-testid="import-place">{t('apply')}</button></>}>
       <input type="file" data-testid="import-file" accept=".pdf,.png,.jpg,.jpeg,.svg,.dxf,application/pdf,image/png,image/jpeg,image/svg+xml" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }} />
+      <button className="btn" data-testid="import-camera" onClick={() => setCamera(true)}><Icon name="camera" size={16} /> {t('photoOfPlan')}</button>
+      {camera && (
+        <CameraDialog title={t('photoOfPlan')} onClose={() => setCamera(false)} onPhoto={(url) => { void imageSize(url).then((sz) => { setPdf(null); setPreview({ url, w: sz.w, h: sz.h }); }); }} />
+      )}
       {pdf && pdf.numPages > 1 && (
         <label className="field"><span>{t('page')} (1–{pdf.numPages})</span><input type="number" min={1} max={pdf.numPages} value={page} onChange={(e) => void choosePage(Math.min(pdf.numPages, Math.max(1, Number(e.target.value))))} /></label>
       )}

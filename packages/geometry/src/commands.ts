@@ -3,7 +3,7 @@
  * (structural copy) or throws GeometryError — it never returns corrupted geometry.
  * Undo/redo is implemented in the app by keeping before/after snapshots of each command.
  */
-import type { CeilingDrop, Floor, Furniture, ID, Opening, RailingStyle, Room, Vec2, Wall, WallKind } from '../../shared-types/src/index';
+import type { CeilingDrop, Floor, Furniture, ID, Opening, Photo, RailingStyle, Room, Vec2, Wall, WallKind } from '../../shared-types/src/index';
 import { GeometryError } from '../../shared-types/src/index';
 import { add, cleanPt, dist, dot, norm, perp, projectOnSegment, rotate, samePoint, scale, sub, MERGE_TOL, clean, segmentsProperlyIntersect } from './vec';
 import { centroid, pointInPolygon, polygonsOverlap, signedArea, validatePolygon, bbox, interiorPoint } from './polygon';
@@ -880,7 +880,36 @@ export function updateCeilingDrop(prev: Floor, id: ID, patch: Partial<Omit<Ceili
   return f;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Site photos
+// ---------------------------------------------------------------------------------------------
+
+/** Pin a photo taken on site to a point on the plan. */
+export function addPhoto(prev: Floor, photo: Omit<Photo, 'id' | 'takenAt'> & { takenAt?: string }): { floor: Floor; id: ID } {
+  if (!photo.dataUrl) fail('photo', 'The photo is empty.');
+  const f = copy(prev);
+  const id = uid();
+  const n = Object.keys(f.photos ?? {}).length + 1;
+  f.photos = {
+    ...(f.photos ?? {}),
+    [id]: {
+      ...photo, ...cleanPt(photo), id, name: photo.name || `Photo ${n}`,
+      subjectId: photo.subjectId ?? null, note: photo.note ?? '',
+      takenAt: photo.takenAt ?? new Date().toISOString(),
+    },
+  };
+  return { floor: f, id };
+}
+
+export function updatePhoto(prev: Floor, id: ID, patch: Partial<Omit<Photo, 'id'>>): Floor {
+  if (!prev.photos?.[id]) fail('missing', 'Photo not found');
+  const f = copy(prev);
+  f.photos[id] = { ...f.photos[id], ...patch };
+  return f;
+}
+
 export function deleteEntity(prev: Floor, id: ID): Floor {
+  if (prev.photos?.[id]) { const f = copy(prev); delete f.photos[id]; return f; }
   if (prev.ceilingDrops?.[id]) { const f = copy(prev); delete f.ceilingDrops[id]; return f; }
   if (prev.rooms[id]) return deleteRoom(prev, id);
   if (prev.openings[id]) return deleteOpening(prev, id);

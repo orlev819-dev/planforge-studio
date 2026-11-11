@@ -93,6 +93,22 @@ export interface Annotation { id: ID; x: number; y: number; text: string }
 /** Lowered ceiling / soffit / bulkhead: a rectangular zone where the ceiling is at `height` above the floor. */
 export interface CeilingDrop { id: ID; name: string; x: number; y: number; width: number; depth: number; rotation: number; height: number }
 
+/** A site photo taken with the device camera (or picked from the library), pinned to the plan. */
+export interface Photo {
+  id: ID;
+  name: string;
+  /** JPEG data URL, downscaled when it was taken */
+  dataUrl: string;
+  /** where its pin sits on the plan (meters) */
+  x: number;
+  y: number;
+  /** what it documents, when it was taken from a room's or a wall's panel */
+  subjectId: ID | null;
+  note: string;
+  /** ISO timestamp */
+  takenAt: string;
+}
+
 export interface ReferenceImage {
   dataUrl: string;
   /** pixel size of the source image */
@@ -124,6 +140,7 @@ export interface Floor {
   annotations: Record<ID, Annotation>;
   ceilingDrops: Record<ID, CeilingDrop>;
   reference: ReferenceImage | null;
+  photos: Record<ID, Photo>;
 }
 
 /** User-imported 3D model (OBJ/STL) stored with the project. Triangle soup, meters, Y-up, centred, base at y=0. */

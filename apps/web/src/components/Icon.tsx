@@ -3,7 +3,7 @@ export type IconName =
   | 'home' | 'plan' | 'library' | 'reports' | 'estimates' | 'team' | 'settings'
   | 'select' | 'pan' | 'room' | 'wall' | 'railing' | 'corner' | 'door' | 'window' | 'opening'
   | 'dimension' | 'ceiling' | 'furniture' | 'note' | 'eraser' | 'more'
-  | 'roomExact' | 'import' | 'layers' | 'undo' | 'redo' | 'share' | 'export' | 'ruler' | 'back' | 'split' | 'plus' | 'minus' | 'close' | 'info' | 'lock' | 'unlock';
+  | 'roomExact' | 'import' | 'layers' | 'undo' | 'redo' | 'share' | 'export' | 'ruler' | 'back' | 'split' | 'plus' | 'minus' | 'close' | 'info' | 'lock' | 'unlock' | 'camera';
 
 const P: Record<IconName, string> = {
   home: 'M3.5 11.2 12 4l8.5 7.2M5.8 10v9.5h12.4V10',
@@ -18,6 +18,7 @@ const P: Record<IconName, string> = {
   room: 'M4.3 5.5h15.4v13H4.3z',
   wall: 'M3.2 9.8h17.6v4.4H3.2z',
   railing: 'M2.6 8.6h18.8M5.2 8.6v9M9.7 8.6v9M14.3 8.6v9M18.8 8.6v9',
+  camera: 'M3.4 8.4h3.4l1.6-2.4h7.2l1.6 2.4h3.4v10.2H3.4zM12 16.6a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6z',
   lock: 'M6 11h12v9H6zM8.4 11V7.8a3.6 3.6 0 0 1 7.2 0V11M12 14.4v2.6',
   unlock: 'M6 11h12v9H6zM8.4 11V7.8a3.6 3.6 0 0 1 6.9-1.3M12 14.4v2.6',
   corner: 'M5.2 19.4V4.6h14.2',

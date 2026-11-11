@@ -9,7 +9,7 @@ export const edgeKey = (a: ID, b: ID) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 export function createFloor(name: string, elevation = 0, defaultHeight = 2.6): Floor {
   return {
     id: uid(), name, elevation, defaultHeight, defaultWallThickness: 0.15,
-    vertices: {}, walls: {}, rooms: {}, openings: {}, furniture: {}, dimensions: {}, annotations: {}, ceilingDrops: {}, reference: null,
+    vertices: {}, walls: {}, rooms: {}, openings: {}, furniture: {}, dimensions: {}, annotations: {}, ceilingDrops: {}, reference: null, photos: {},
   };
 }
 

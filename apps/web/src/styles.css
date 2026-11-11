@@ -113,6 +113,12 @@ table.report { border-collapse: collapse; width: 100%; margin-top: 12px; backgro
 .laser-pop { position: fixed; width: min(330px, calc(100vw - 16px)); max-height: min(70vh, 560px); overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; z-index: 60; }
 .laser-pop h4 { margin: 0 0 4px; } .laser-pop p { margin: 6px 0; }
 .laser-pop #laser-aim, .laser-pop [data-testid="laser-aim"] { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.camera-view { width: 100%; max-height: 50vh; background: #000; border-radius: 8px; object-fit: contain; }
+.photo-full { width: 100%; border-radius: 8px; cursor: zoom-in; display: block; margin-bottom: 8px; }
+.photo-strip { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.photo-thumb { width: 64px; height: 64px; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: none; cursor: pointer; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumb:hover { border-color: var(--accent); }
 /* a measured wall, held at its length until released */
 input.locked { border-color: #e8590c; background: color-mix(in srgb, #e8590c 7%, transparent); }
 .field-input input.locked + em { color: #e8590c; display: inline-flex; align-items: center; }

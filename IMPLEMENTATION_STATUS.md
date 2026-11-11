@@ -50,7 +50,8 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | Persistence | cloud sync, conflict handling | ❌ |
 | i18n | Hebrew RTL / English LTR, live switching, Hebrew room names, Hebrew in PDF (rasterized), non-mirrored canvas | ✅ |
 | Accounts / teams / comments / audit | — | ❌ |
-| Photos / notes / checklists / issues | text notes on the plan only | 🟡 |
+| Photos | site photos from the device camera (live preview, or the system picker when permission is refused), downscaled to 1600 px JPEG and stored in the project: pinned on the plan with a camera marker, draggable, named and annotated, filed under a room when taken from its panel, and usable as the source image for tracing a printed plan | ✅ |
+| Notes / checklists / issues | text notes on the plan only; photos are not yet included in PDF/report output | 🟡 |
 | Cost estimation | — | ❌ |
 | Bluetooth laser | Bosch GLM 50-27 C/CG, full MT-protocol framing (CRC-8 checked, frames split/joined across indications, heartbeat, laser-state and error events decoded); **Measure** button takes a reading from the app, status request written with response, 4-minute keep-alive against the meter's 5-minute auto-off; connect, status, auto-reconnect (3 tries); a reading goes to the **aimed** length field — the one last tapped, which stays aimed (and highlighted) after it loses focus to the keyboard or the panel — then advances to the room's next wall (switchable); with nothing aimed it follows the selection (room → Wall 1, wall → its length, interior mode → its interior length) or the wall/room being drawn; readings commit through the field itself, so interior mode and validation apply, and each is announced with its target | 🟡 (awaiting hardware test) |
 | Bluetooth laser | other brands (Leica DISTO, Hilti, Stabila…) | ❌ |
@@ -73,7 +74,9 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | Firefox / Safari desktop | Expected to work (standard APIs only); **not tested** |
 | iPad (Safari, home-screen app) | Dedicated tablet visual style (card toolbar with line icons, pill controls, soft shadows, rounded panels, −/+ steppers on every length field, material swatch, status-bar pills, Apple Pencil hint) · primary tools on the bar with the rest behind **More** (the Room tool opens the exact-dimensions dialog when tapped again) · draggable 2D | 3D splitter. Touch behaviour: icon rail, 44 px+ targets, 16 px inputs (no focus zoom), properties drawer in portrait / docked in landscape, long-press context menu, one-finger pan + pinch, tap-to-draw with Finish/Undo/Cancel bar, typed-length + direction buttons (and laser) instead of keyboard, 3D two-finger pan + on-screen walk pad, safe areas, apple-touch-icon + home-screen meta. Tested in Chromium iPad emulation (portrait 820×1180, landscape 1180×820); **not yet on a physical iPad / WebKit**. Bluetooth on iPad only via Bluefy. |
 | Bosch GLM 50-27 C/CG | Chrome/Edge (Web Bluetooth); Firefox/Safari have no Web Bluetooth |
-| LiDAR / RoomPlan / ARCore / other lasers | **Not supported** in this build |
+| Camera (getUserMedia) | Works wherever the browser allows it over HTTPS — Safari/iPadOS included; falls back to the file picker (which offers the camera on mobile) |
+| LiDAR / depth sensing | **Not reachable from any browser on iOS.** Apple exposes LiDAR only through ARKit/RoomPlan in a native app, and Safari implements no WebXR, so there is no web API for depth, planes or AR hit-testing. On Android, Chrome's WebXR depth/hit-test could drive an AR tape measure; that path is not built here because it cannot be tested in this environment. A real scan needs a native shell feeding `packages/scanning` |
+| RoomPlan / ARCore / other laser brands | **Not supported** in this build |
 
 ## Next steps (in priority order)
 1. `apps/api`: Fastify + PostgreSQL/Prisma, auth, workspaces, RBAC enforced on the server, revision-based sync and conflict handling.

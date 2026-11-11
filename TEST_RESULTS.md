@@ -5,9 +5,9 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Suite | Command | Result |
 |---|---|---|
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
-| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 81 / 81 passed |
+| Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 84 / 84 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 27 / 27 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 29 / 29 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -33,6 +33,12 @@ a self-crossing ring is refused · a partition drawn across a room does not sile
 E2E (2): tap/click 4 corners back onto the first → room panel with 14.00 m², 4 wall rows, all walls exterior, draw bar gone →
 one undo removes room + closing wall, redo restores → 3 walls onto the room's right-hand wall → second room 7.00 m²,
 7 walls, 1 interior → an open chain stays walls → both rooms survive a reload. Railing ring → 4.50 m² balcony.
+
+## Camera / site photos (3 unit + 2 E2E)
+Unit (3): a photo is pinned where it was taken, named for you, cleaned to the plan's precision and stamped, without touching the input floor · renamed, annotated and deleted like anything else, with a missing id and an empty image both refused ·
+photos travel in the project JSON and a project saved before photos existed loads with none.
+E2E (2): with a fake rear camera (a canvas stream) — Photo tool → tap the plan → live view → shutter → preview → Use → pinned at that point, selected, stored as a JPEG of a few KB → name and note stick →
+deselect and tap the pin to open it again → a photo taken from the room panel is filed under the room → both survive a reload. Without permission: the error is shown, the shutter stays disabled and the file picker is offered.
 
 ## Opening offsets (7 unit + 1 E2E)
 Unit (7): offsets are measured to the opening's edges, not its centre (1.60 / 0.80 / 1.60 on a 4.00 wall) · interior mode runs from the inside faces (span 3.85, 1.525 each side) ·

@@ -3,13 +3,14 @@ import type { Floor, Opening } from '../../../../packages/shared-types/src/index
 import {
   roomMetrics, floorMetrics, wallMetrics, formatArea, formatLength, formatVolume, setWallLength, setWallAngle, updateWall, updateRoom, updateOpening,
   updateFurniture, moveVertex, roomEdgeWalls, rotateRoom, deleteEntity, addOpening, mergeRooms, splitRoom, objectToWallDistance, deleteCorner, mergeWallsAt,
-  updateFloorProps, wallLength, dist, updateCeilingDrop, ceilingAbove, setRoomEdgeInteriorLength, setWallLocked, openingOffsets, setOpeningOffset,
+  updateFloorProps, wallLength, dist, updateCeilingDrop, ceilingAbove, setRoomEdgeInteriorLength, setWallLocked, openingOffsets, setOpeningOffset, addPhoto, updatePhoto, interiorPoint, roomPoints,
 } from '../../../../packages/geometry/src/index';
 import { editFloor, editProject, getState, select, setTool, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
 import { materialColor } from '../../../../packages/renderer-3d/src/mesh';
 import { Icon } from './Icon';
 import { LengthField, NumberField, TextField, SelectField, Check, Stat, MATERIALS } from './fields';
+import { CameraDialog } from './CameraDialog';
 
 export function Inspector() {
   const { t } = useT();
@@ -21,7 +22,7 @@ export function Inspector() {
   const unit = project.settings.unit, prec = project.settings.precision;
   const L = (m: number) => formatLength(m, unit, prec);
   const A = (m: number) => formatArea(m, unit, prec);
-  const sel = selection.filter((id) => floor.rooms[id] || floor.walls[id] || floor.openings[id] || floor.furniture[id] || floor.vertices[id] || floor.dimensions[id] || floor.annotations[id] || floor.ceilingDrops?.[id]);
+  const sel = selection.filter((id) => floor.rooms[id] || floor.walls[id] || floor.openings[id] || floor.furniture[id] || floor.vertices[id] || floor.dimensions[id] || floor.annotations[id] || floor.ceilingDrops?.[id] || floor.photos?.[id]);
 
   if (sel.length === 2 && floor.rooms[sel[0]] && floor.rooms[sel[1]])
     return (
@@ -87,6 +88,7 @@ export function Inspector() {
             );
           })}
         </div>
+        <RoomPhotos roomId={id} floor={floor} />
         <SplitRoom roomId={id} floor={floor} />
         <div className="row">
           <button className="btn" onClick={() => editFloor('Rotate room', (f) => rotateRoom(f, id, 90))}>{t('rotate90')}</button>
@@ -258,6 +260,21 @@ export function Inspector() {
     );
   }
 
+  if (floor.photos?.[id]) {
+    const ph = floor.photos[id];
+    return (
+      <Panel title={t('photo')} testId="inspector-photo">
+        <img className="photo-full" data-testid="photo-image" src={ph.dataUrl} alt={ph.name}
+          onClick={() => { const w = window.open(); if (w) w.document.write(`<img src="${ph.dataUrl}" style="max-width:100%">`); }} />
+        <TextField label={t('name')} value={ph.name} testId="photo-name" onCommit={(v) => editFloor('Rename photo', (f) => updatePhoto(f, id, { name: v }))} />
+        <TextField label={t('photoNote')} value={ph.note} multiline testId="photo-note" onCommit={(v) => editFloor('Photo note', (f) => updatePhoto(f, id, { note: v }))} />
+        {ph.subjectId && floor.rooms[ph.subjectId] && <div className="hint-text" data-testid="photo-subject">{t('room')}: {floor.rooms[ph.subjectId].name}</div>}
+        {ph.takenAt && <div className="hint-text">{new Date(ph.takenAt).toLocaleString()}</div>}
+        <button className="btn danger" onClick={() => { editFloor('Delete photo', (f) => deleteEntity(f, id)); select([]); }}>{t('delete')}</button>
+      </Panel>
+    );
+  }
+
   if (floor.annotations[id]) {
     const a = floor.annotations[id];
     return (
@@ -342,6 +359,32 @@ function FloorPanel({ floor }: { floor: Floor }) {
         </details>
       )}
     </Panel>
+  );
+}
+
+/** Photos taken for this room: a strip of thumbnails plus the camera. */
+function RoomPhotos({ roomId, floor }: { roomId: string; floor: Floor }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const mine = Object.values(floor.photos ?? {}).filter((p) => p.subjectId === roomId);
+  return (
+    <details className="sub" open={mine.length > 0}>
+      <summary data-testid="room-photos-summary">{t('photos')} ({mine.length})</summary>
+      <div className="photo-strip" data-testid="room-photos">
+        {mine.map((p) => (
+          <button key={p.id} className="photo-thumb" data-testid={`room-photo-${p.id}`} title={p.name} onClick={() => select([p.id])}>
+            <img src={p.dataUrl} alt={p.name} />
+          </button>
+        ))}
+      </div>
+      <button className="btn" data-testid="room-add-photo" onClick={() => setOpen(true)}><Icon name="camera" size={16} /> {t('addPhoto')}</button>
+      {open && (
+        <CameraDialog onClose={() => setOpen(false)} onPhoto={(dataUrl) => {
+          const p = interiorPoint(roomPoints(floor, floor.rooms[roomId]));
+          editFloor('Add photo', (f) => addPhoto(f, { name: '', dataUrl, x: p.x, y: p.y, subjectId: roomId, note: '' }).floor);
+        }} />
+      )}
+    </details>
   );
 }
 

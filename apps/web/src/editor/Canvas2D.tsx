@@ -10,7 +10,7 @@ import {
   addAnnotation, addDimension, addFurniture, addOpening, addPartitionWall, addRoom, deleteEntity, dist, formatLength, furnitureCorners, insertCorner,
   moveRoom, moveVertex, moveWall, norm, openingGeometry, perp, pointInPolygon, projectOnSegment, roomPoints, sub, updateFurniture, updateOpening,
   wallEnds, rotateRoom, objectToWallDistance, addCeilingDrop, updateCeilingDrop, ceilingAbove, deleteCorner, mergeWallsAt, signedArea, polygonArea, formatArea, bbox, parseLength,
-  closeWallLoop, wallLoopAt, openingOffsets,
+  closeWallLoop, wallLoopAt, openingOffsets, addPhoto,
 } from '../../../../packages/geometry/src/index';
 import { buildDrawing, drawingBounds, type Layer } from '../../../../packages/cad-io/src/drawing';
 import { catalogById } from '../../../../packages/shared-types/src/catalog';
@@ -18,6 +18,7 @@ import { editFloor, getState, redo, select, setState, setTool, toast, undo, useS
 import { useT } from '../i18n';
 import { paintPrims, toScreen, toWorld, type ViewXf } from './paint';
 import { setCanvasLaserHandler } from '../laser';
+import { CameraDialog } from '../components/CameraDialog';
 
 type Hit =
   | { type: 'vertex'; id: ID }
@@ -28,6 +29,7 @@ type Hit =
   | { type: 'wall'; id: ID; t: number }
   | { type: 'dimension'; id: ID }
   | { type: 'annotation'; id: ID }
+  | { type: 'photo'; id: ID }
   | { type: 'ceiling'; id: ID }
   | { type: 'room'; id: ID };
 
@@ -68,6 +70,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
   const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2 } | null>(null);
   const [typed, setTyped] = useState('');
   const [menu, setMenu] = useState<{ x: number; y: number; hit: Hit | null; world: Vec2 } | null>(null);
+  const [camera, setCamera] = useState<Vec2 | null>(null);   // where a photo about to be taken will be pinned
   const [dragError, setDragError] = useState<string | null>(null);
   const [, force] = useState(0);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -201,6 +204,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     }
     const furn = Object.values(f.furniture);
     for (let i = furn.length - 1; i >= 0; i--) if (pointInPolygon(w, furnitureCorners(furn[i]))) return { type: 'furniture', id: furn[i].id };
+    for (const ph of Object.values(f.photos ?? {})) if (dist(ph, w) < Math.max(0.3, tol)) return { type: 'photo', id: ph.id };
     for (const a of Object.values(f.annotations)) if (dist(a, w) < Math.max(0.3, tol)) return { type: 'annotation', id: a.id };
     if (getState().layers.ceilings) for (const c of Object.values(f.ceilingDrops ?? {})) if (pointInPolygon(w, furnitureCorners(c))) return { type: 'ceiling', id: c.id };
     for (const d of Object.values(f.dimensions)) {
@@ -478,10 +482,11 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
           if (e.shiftKey) select(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
           else if (!cur.includes(id)) select([id]);
         } else if (hit.type === 'vertex') select([id]);
-        const labels: Record<Hit['type'], string> = { vertex: 'Move corner', opening: 'Move opening', furniture: 'Move object', 'rotate-handle': 'Rotate object', 'resize-handle': 'Resize object', wall: 'Move wall', dimension: 'Select', annotation: 'Move note', room: 'Move room', ceiling: 'Move lowered ceiling' };
+        const labels: Record<Hit['type'], string> = { photo: 'Move photo', vertex: 'Move corner', opening: 'Move opening', furniture: 'Move object', 'rotate-handle': 'Rotate object', 'resize-handle': 'Resize object', wall: 'Move wall', dimension: 'Select', annotation: 'Move note', room: 'Move room', ceiling: 'Move lowered ceiling' };
         const extra: Record<string, number> = {};
         if (hit.type === 'furniture' || hit.type === 'resize-handle' || hit.type === 'rotate-handle') { const fu = floor.furniture[id]; Object.assign(extra, { x: fu.x, y: fu.y, w: fu.width, d: fu.depth, r: fu.rotation }); }
         if (hit.type === 'annotation') { const a = floor.annotations[id]; Object.assign(extra, { x: a.x, y: a.y }); }
+        if (hit.type === 'photo') { const ph = floor.photos[id]; Object.assign(extra, { x: ph.x, y: ph.y }); }
         if (hit.type === 'ceiling') { const c = floor.ceilingDrops[id]; Object.assign(extra, { x: c.x, y: c.y }); }
         const room = getState().selection.length > 1 && hit.type === 'room';
         if (room) { /* multi-room drags are not supported; only select */ return; }
@@ -521,6 +526,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
         if (id) { select([id]); setTool('select'); }
         return;
       }
+      case 'photo': { setCamera(sn.p); return; }
       case 'eraser': { const h = hitTest(w); if (h && h.type !== 'rotate-handle' && h.type !== 'resize-handle') editFloor('Erase', (f) => deleteEntity(f, h.id)); return; }
       case 'calibrate': {
         const pts = [...calib, w];
@@ -614,6 +620,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
       }
       case 'ceiling': next = tryCmd(() => updateCeilingDrop(base, h.id, { x: +(it.extra!.x + q(dx)).toFixed(4), y: +(it.extra!.y + q(dy)).toFixed(4) })); break;
       case 'annotation': next = tryCmd(() => ({ ...base, annotations: { ...base.annotations, [h.id]: { ...base.annotations[h.id], x: it.extra!.x + q(dx), y: it.extra!.y + q(dy) } } })); break;
+      case 'photo': next = tryCmd(() => ({ ...base, photos: { ...base.photos, [h.id]: { ...base.photos[h.id], x: it.extra!.x + q(dx), y: it.extra!.y + q(dy) } } })); break;
       default: break;
     }
     if (next) setPreview(next);
@@ -754,6 +761,22 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     paintPrims(ctx, prims, v, { hidden, highlight: new Set(selection), dark });
 
     const S = (p: Vec2) => toScreen(v, p);
+    // site photos: a camera pin where each was taken
+    if (!hidden.has('text')) for (const ph of Object.values(shown.photos ?? {})) {
+      const p = S(ph);
+      const on = selection.includes(ph.id);
+      ctx.save();
+      ctx.beginPath(); ctx.arc(p.x, p.y, on ? 13 : 11, 0, Math.PI * 2);
+      ctx.fillStyle = on ? '#1d7cf2' : dark ? '#1f2329' : '#fff';
+      ctx.strokeStyle = '#1d7cf2'; ctx.lineWidth = 1.6; ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = on ? '#fff' : '#1d7cf2'; ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.rect(p.x - 5.5, p.y - 3.5, 11, 8);
+      ctx.moveTo(p.x - 2, p.y - 3.5); ctx.lineTo(p.x - 1, p.y - 5.5); ctx.lineTo(p.x + 1.6, p.y - 5.5); ctx.lineTo(p.x + 2.6, p.y - 3.5);
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(p.x, p.y + 0.6, 2.2, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     // the selected opening shows the two distances you measure on site: corner to its near side,
     // and its far side to the next corner (screen only — never in an export)
     for (const id of selection) {
@@ -893,7 +916,7 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
     if (hover) { const s = S(hover.snap.p); ctx.strokeStyle = '#e8590c'; ctx.beginPath(); ctx.moveTo(s.x, 0); ctx.lineTo(s.x, R); ctx.moveTo(0, s.y); ctx.lineTo(R, s.y); ctx.stroke(); }
   });
 
-  const hint = tool === 'railing' ? t('hintRailing') : tool === 'ceiling' ? t('hintCeiling') : tool === 'room' ? t(coarse ? 'hintRoomTouch' : 'hintRoom') : tool === 'wall' ? t(coarse ? 'hintWallTouch' : 'hintWall') : ['door', 'window', 'opening'].includes(tool) ? t('hintOpening') : tool === 'furniture' ? t('hintFurniture') : tool === 'dimension' ? t('hintDimension') : tool === 'corner' ? t('hintCorner') : tool === 'calibrate' ? t('calibrateHint') : null;
+  const hint = tool === 'photo' ? t('photoHint') : tool === 'railing' ? t('hintRailing') : tool === 'ceiling' ? t('hintCeiling') : tool === 'room' ? t(coarse ? 'hintRoomTouch' : 'hintRoom') : tool === 'wall' ? t(coarse ? 'hintWallTouch' : 'hintWall') : ['door', 'window', 'opening'].includes(tool) ? t('hintOpening') : tool === 'furniture' ? t('hintFurniture') : tool === 'dimension' ? t('hintDimension') : tool === 'corner' ? t('hintCorner') : tool === 'calibrate' ? t('calibrateHint') : null;
   const cursor = tool === 'pan' || inter.current?.kind === 'pan' ? 'grab' : tool === 'select' ? (hover?.hit ? (hover.hit.type === 'room' || hover.hit.type === 'furniture' || hover.hit.type === 'wall' ? 'move' : 'pointer') : 'default') : 'crosshair';
 
   const menuItems = (() => {
@@ -939,6 +962,13 @@ export function Canvas2D({ floor, onCalibrate }: { floor: Floor; onCalibrate: (a
         </div>
       )}
       {dragError && <div className="canvas-error" role="alert">{dragError}</div>}
+      {camera && (
+        <CameraDialog onClose={() => { setCamera(null); setTool('select'); }} onPhoto={(dataUrl) => {
+          let id: ID | null = null;
+          editFloor('Add photo', (f) => { const r = addPhoto(f, { name: '', dataUrl, x: camera.x, y: camera.y, subjectId: null, note: '' }); id = r.id; return r.floor; });
+          if (id) select([id]);
+        }} />
+      )}
       {menu && menuItems.length > 0 && (
         <div className="ctx-menu" style={{ left: menu.x, top: menu.y }} onPointerDown={(e) => e.stopPropagation()}>
           {menuItems.map((m) => <button key={m.label} onClick={() => { setMenu(null); m.run(); }}>{m.label}</button>)}
