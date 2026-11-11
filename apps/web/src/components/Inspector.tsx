@@ -5,7 +5,7 @@ import {
   updateFurniture, moveVertex, roomEdgeWalls, rotateRoom, deleteEntity, addOpening, mergeRooms, splitRoom, objectToWallDistance, deleteCorner, mergeWallsAt,
   updateFloorProps, wallLength, dist, updateCeilingDrop, ceilingAbove, setRoomEdgeInteriorLength, setWallLocked, openingOffsets, setOpeningOffset, addPhoto, updatePhoto, interiorPoint, roomPoints,
 } from '../../../../packages/geometry/src/index';
-import { editFloor, editProject, getState, select, setTool, useStore, currentFloor } from '../store';
+import { editFloor, editProject, getState, select, setTool, toast, useStore, currentFloor } from '../store';
 import { useT } from '../i18n';
 import { materialColor } from '../../../../packages/renderer-3d/src/mesh';
 import { Icon } from './Icon';
@@ -134,10 +134,15 @@ export function Inspector() {
         <div className="stats"><Stat label={railing ? t('area') : t('wallArea')} value={A(wm.sideArea)} />{!railing && <Stat label={`${t('doors')} / ${t('windows')}`} value={String(ops.length)} />}</div>
         {railing && <div className="hint-text">{t('railingNoOpening')}</div>}
         <div className="row">
-          {!railing && <button className="btn" onClick={() => editFloor('Add door', (f) => addOpening(f, id, 'door', wm.length / 2, { width: getState().openingDefaults.door }).floor)}>+ {t('door')}</button>}
-          {!railing && <button className="btn" onClick={() => editFloor('Add window', (f) => addOpening(f, id, 'window', wm.length / 2, { width: getState().openingDefaults.window }).floor)}>+ {t('window')}</button>}
+          {!railing && w.kind !== 'open' && <button className="btn" onClick={() => editFloor('Add door', (f) => addOpening(f, id, 'door', wm.length / 2, { width: getState().openingDefaults.door }).floor)}>+ {t('door')}</button>}
+          {!railing && w.kind !== 'open' && <button className="btn" onClick={() => editFloor('Add window', (f) => addOpening(f, id, 'window', wm.length / 2, { width: getState().openingDefaults.window }).floor)}>+ {t('window')}</button>}
           {w.standalone && <button className="btn danger" onClick={() => { editFloor('Delete wall', (f) => deleteEntity(f, id)); select([]); }}>{t('delete')}</button>}
         </div>
+        {!w.standalone && (
+          w.kind === 'open'
+            ? <button className="btn" data-testid="wall-close-gap" onClick={() => editFloor('Close passage', (f) => updateWall(f, id, { kind: 'solid' }))}><Icon name="wall" size={16} /> {t('closeGap')}</button>
+            : <button className="btn danger" data-testid="wall-open-space" onClick={() => { if (editFloor('Open passage', (f) => updateWall(f, id, { kind: 'open' }))) toast(t('wallToOpen')); }}><Icon name="openWall" size={16} /> {t('removeWallOpen')}</button>
+        )}
       </Panel>
     );
   }

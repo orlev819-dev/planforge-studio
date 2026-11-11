@@ -41,7 +41,7 @@ an open edge adds no wall surface, raises the net area (nothing to inset for) an
 a door must be removed before the passage opens, and none can be added to it afterwards · the passage closes again from the wall type, and a second delete says it is already open ·
 a drawn partition is still deleted outright, and the open state survives a save/load.
 E2E (1): two rooms sharing a wall → eraser on it → still two rooms, 7 walls, kind `open` → Living stays 14.00 m², Kitchen 10.50 m², passage 3.35 m → 3D part count drops →
-the wall panel shows Open with its hint and closes the passage again → re-opened, it survives a reload.
+the wall panel shows Open with its hint, *Put the wall back* closes it, and *Remove this wall (open space)* opens it again from the panel with both rooms intact → survives a reload.
 
 ## Camera / site photos (3 unit + 2 E2E)
 Unit (3): a photo is pinned where it was taken, named for you, cleaned to the plan's precision and stamped, without touching the input floor · renamed, annotated and deleted like anything else, with a missing id and an empty image both refused ·

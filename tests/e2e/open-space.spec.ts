@@ -57,18 +57,25 @@ test('erase the wall between two rooms: an open passage, two rooms', async ({ pa
   const after = Number(((await page.getByTestId('viewer-stats').textContent()) ?? '0').split(' ')[0]);
   expect(after).toBeLessThan(before);
   await page.getByTestId('view-2d').click();
+  await page.waitForTimeout(300); // the 2D canvas re-fits when it comes back
 
   // and it can be closed again from the wall panel
   await clickWorld(page, { x: 4, y: 1.75 });
   await expect(page.getByTestId('inspector-wall')).toBeVisible();
   await expect(page.getByTestId('wall-kind')).toHaveValue('open');
   await expect(page.getByTestId('wall-open-hint')).toBeVisible();
-  await page.getByTestId('wall-kind').selectOption('solid');
+  await page.getByTestId('wall-close-gap').click();
   expect(((Object.values((await floor(page)).walls) as any[]).find((w) => !w.exterior)).kind).toBe('solid');
 
+  // selecting the wall gives a button that removes it without merging the rooms
+  await expect(page.getByTestId('wall-open-space')).toBeVisible();
+  await page.getByTestId('wall-open-space').click();
+  await expect(page.getByTestId('toast')).toContainText('separate rooms');
+  const g = await floor(page);
+  expect(Object.keys(g.rooms)).toHaveLength(2);
+  expect((Object.values(g.walls) as any[]).find((w) => !w.exterior).kind).toBe('open');
+
   // survives a reload
-  await page.getByTestId('tool-eraser').click();
-  await clickWorld(page, { x: 4, y: 1.75 });
   await expect(page.getByTestId('save-state')).toHaveText('Saved');
   await page.reload();
   await expect(page.getByTestId('editor')).toBeVisible();
