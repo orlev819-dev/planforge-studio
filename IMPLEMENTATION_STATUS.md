@@ -50,7 +50,7 @@ Legend: ✅ implemented and tested · 🟡 implemented, partial or manually veri
 | Accounts / teams / comments / audit | — | ❌ |
 | Photos / notes / checklists / issues | text notes on the plan only | 🟡 |
 | Cost estimation | — | ❌ |
-| Bluetooth laser | Bosch GLM 50-27 C/CG: connect, status, auto-reconnect (3 tries), reading → focused length field / drawing wall-room toward cursor / selected wall length | 🟡 (awaiting hardware test) |
+| Bluetooth laser | Bosch GLM 50-27 C/CG: connect, status, auto-reconnect (3 tries); a reading goes to the **aimed** length field — the one last tapped, which stays aimed (and highlighted) after it loses focus to the keyboard or the panel — then advances to the room's next wall (switchable); with nothing aimed it follows the selection (room → Wall 1, wall → its length, interior mode → its interior length) or the wall/room being drawn; readings commit through the field itself, so interior mode and validation apply, and each is announced with its target | 🟡 (awaiting hardware test) |
 | Bluetooth laser | other brands (Leica DISTO, Hilti, Stabila…) | ❌ |
 | Scanning (RoomPlan/ARKit/ARCore) | interfaces only, nothing simulated | ❌ |
 

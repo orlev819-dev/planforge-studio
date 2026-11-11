@@ -7,7 +7,7 @@ Environment: Linux sandbox, Node 22.23, TypeScript 6.0, Chromium (Playwright 1.6
 | Type-check (strict, packages + app) | `npm run typecheck` | ✅ 0 errors |
 | Unit tests (geometry, export, laser, ceilings, model import, railings, interior dimensions, closing walls) | `npm test` | ✅ 61 / 61 passed |
 | Production build | `npm run build` | ✅ |
-| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 23 / 23 passed |
+| End-to-end (real UI in Chromium, incl. iPad emulation) | `npm run test:e2e` | ✅ 24 / 24 passed |
 
 ## Unit tests (27)
 Geometry (19): rectangle area / perimeter / volume (4.00 × 3.50 = 14.00 m²) · exact 4.25 × 3.60 × 2.75 creation ·
@@ -36,6 +36,8 @@ one undo removes room + closing wall, redo restores → 3 walls onto the room's 
 
 ## Laser unit tests (3)
 Packet parser (valid / malformed / NaN / out-of-range — synthetic fixtures) · driver against a mock GATT: subscribe, enable command `C0 55 02 01 00 1A`, reading emitted, disconnect.
+
+E2E, aiming (1): connect with a room selected → the panel shows the next reading goes to Wall 1 → reading with no field focused fills Wall 1 and the aim moves to Wall 2 → second reading gives 13.02 m² → tap Wall 4, open the panel (focus lost), switch the advance off → two readings both land on Wall 4 → in Interior mode a 3.72 m reading sets the inside face and the centerline follows (3.87 m).
 
 ## Lowered ceiling tests
 Unit (4): convex clipping · volume reduction, lowered area, soffit side faces (flush-with-wall edge excluded) · height/size validation · 2D label, DXF layer, 3D block heights, re-id, old-project migration.

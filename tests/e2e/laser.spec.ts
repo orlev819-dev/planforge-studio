@@ -105,3 +105,49 @@ test('laser panel is fully visible on a tablet top bar and closes on outside tap
   await page.mouse.click(400, 700);
   await expect(pop).toHaveCount(0);
 });
+
+test('readings follow the aimed wall field: by selection, after focus is lost, and wall by wall', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('new-project').click();
+  await page.getByTestId('project-name-input').fill('Aim');
+  await page.getByTestId('project-submit').click();
+  await page.getByTestId('room-dialog-open').click();
+  await page.getByTestId('room-create').click();                     // 4.00 x 3.50
+  await page.getByTestId('laser-open').click();
+  await page.getByTestId('laser-connect').click();
+  await expect(page.getByTestId('laser-status')).toContainText('Connected');
+  await expect(page.getByTestId('laser-aim')).toContainText('Wall 1'); // the new room is selected
+  await page.getByTestId('laser-open').click();                       // close the panel, keep the selection
+
+  // no field focused (the panel's button had focus): the reading still lands on Wall 1
+  await page.evaluate(() => (window as any).__mockGlm.emit(4.2));
+  await expect(page.getByTestId('room-wall-0')).toHaveValue('4.2');
+  // ... and the aim moves on, so the next reading is Wall 2
+  await expect(page.getByTestId('room-wall-1')).toHaveClass(/laser-armed/);
+  await page.evaluate(() => (window as any).__mockGlm.emit(3.1));
+  await expect(page.getByTestId('room-wall-1')).toHaveValue('3.1');
+  await expect(page.getByTestId('room-area')).toHaveText('13.02 m²');
+
+  // tapping a field aims at it and the aim survives losing focus to the panel
+  await page.getByTestId('room-wall-3').focus();
+  await page.getByTestId('laser-open').click();
+  await expect(page.getByTestId('laser-aim')).toContainText('Wall 4');
+  await page.getByTestId('laser-advance').uncheck();                  // stay on this wall
+  await page.evaluate(() => (window as any).__mockGlm.emit(3.4));
+  await expect(page.getByTestId('room-wall-3')).toHaveValue('3.4');
+  await page.evaluate(() => (window as any).__mockGlm.emit(3.6));     // re-measure the same wall
+  await expect(page.getByTestId('room-wall-3')).toHaveValue('3.6');
+  await expect(page.getByTestId('laser-last')).toContainText('3.600 m');
+
+  // in interior mode the reading is taken as an inside-face measurement
+  await page.getByTestId('laser-open').click();
+  await page.getByTestId('measure-interior').click();
+  await page.getByTestId('room-wall-0').focus();
+  await page.evaluate(() => (window as any).__mockGlm.emit(3.72));
+  await expect(page.getByTestId('room-wall-0')).toHaveValue('3.72');
+  const xs = await page.evaluate(() => {
+    const f = (window as any).__planforge.getState().project.floors[0];
+    return Object.values(f.vertices).map((v: any) => v.x);
+  });
+  expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(3.72 + 0.15, 6);  // centerline, not the raw reading
+});

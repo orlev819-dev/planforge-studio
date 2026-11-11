@@ -112,6 +112,10 @@ table.report { border-collapse: collapse; width: 100%; margin-top: 12px; backgro
 /* fixed, so the horizontally scrolling tablet top bar cannot clip it */
 .laser-pop { position: fixed; width: min(330px, calc(100vw - 16px)); max-height: min(70vh, 560px); overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; z-index: 60; }
 .laser-pop h4 { margin: 0 0 4px; } .laser-pop p { margin: 6px 0; }
+.laser-pop #laser-aim, .laser-pop [data-testid="laser-aim"] { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* the length field a laser reading will land in */
+input.laser-armed { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent) inset; }
+input.laser-armed + em { color: var(--accent); font-weight: 600; }
 .laser-log { font-size: 10.5px; max-height: 160px; overflow: auto; background: var(--panel-2); padding: 6px; border-radius: 4px; white-space: pre-wrap; direction: ltr; text-align: left; }
 .grid2 > * { min-width: 0; } .field-input input { min-width: 0; width: 100%; }
 .my-models { border: 1px dashed var(--border); border-radius: 8px; padding: 6px; margin-bottom: 8px; } .lib-item { position: relative; } .lib-item .icon-btn { position: absolute; top: 2px; inset-inline-end: 2px; font-size: 11px; }

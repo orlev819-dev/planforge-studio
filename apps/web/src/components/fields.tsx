@@ -1,8 +1,9 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from './Icon';
 import type { LengthUnit } from '../../../../packages/shared-types/src/index';
 import { parseLength, toUnit } from '../../../../packages/geometry/src/index';
 import { toast } from '../store';
+import { armLaserField, registerLaserField, useArmedField } from '../laser';
 
 const unitLabel = (u: LengthUnit) => (u === 'ft-in' ? 'ft' : u);
 
@@ -30,11 +31,22 @@ export function LengthField({ label, value, unit, onCommit, testId, min = 0, all
     if (m == null || m < min) { toast(`Invalid length: "${text}"`, 'error'); setText(fmt(value)); return; }
     if (value == null || Math.abs(m - value) > 1e-9) onCommit(m);
   };
+  // a laser reading commits straight through this field, so it keeps the field's own meaning
+  // (interior vs centerline, which room edge) even when the field no longer has focus
+  const live = useRef({ label, onCommit });
+  live.current = { label, onCommit };
+  useEffect(() => {
+    if (!testId) return;
+    return registerLaserField(testId, { label: () => live.current.label, commit: (m) => live.current.onCommit(m) });
+  }, [testId]);
+  const armed = useArmedField() === testId;
   return (
     <label className="field">
       <span>{label}</span>
       <span className="field-input">
-        <input data-testid={testId} data-laser-commit="1" value={text} placeholder={placeholder} inputMode="decimal" onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setText(fmt(value)); (e.target as HTMLInputElement).blur(); } }} />
+        <input data-testid={testId} data-laser-commit="1" className={armed ? 'laser-armed' : undefined} value={text} placeholder={placeholder} inputMode="decimal"
+          onFocus={() => testId && armLaserField(testId)}
+          onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setText(fmt(value)); (e.target as HTMLInputElement).blur(); } }} />
         <em>{unitLabel(unit)}</em>
         {coarse && steppers && (
           <span className="stepper">

@@ -33,11 +33,12 @@ const en = {
   ceiling: 'Lowered ceiling', hintCeiling: 'Drag a rectangle over the area where the ceiling is lower.', ceilingHeightAt: 'Ceiling height here', dropBy: 'Lower by', loweredArea: 'Lowered ceiling area', soffitFaces: 'Soffit side faces',
   laser: 'Laser measure (Bluetooth)', connect: 'Connect', disconnect: 'Disconnect', lastReading: 'Last reading',
   laser_unsupported: 'Bluetooth not available', laser_idle: 'Not connected', laser_connecting: 'Connecting…', laser_connected: 'Connected', laser_reconnecting: 'Reconnecting…', laser_error: 'Error',
+  laserNext: 'Next reading', laserAimAuto: 'the field you tap, or what is selected', release: 'Release', laserAdvance: 'After each reading, aim at the next wall',
   laserTarget_field: 'entered in field', laserTarget_drawing: 'placed drawing point', laserTarget_wall: 'set selected wall length', laserTarget_none: 'not applied',
   laserTips: 'Close MeasureOn on your phone (or turn the phone Bluetooth off): the GLM accepts one connection|If the GLM is paired in Windows Settings > Bluetooth, remove it there, then try again|Make sure Bluetooth is on in the GLM (BT symbol on its display) and the device is awake|Press Connect again: on Windows it often succeeds on the second try',
   laserInsecure: 'Browsers allow Bluetooth only on secure pages (https:// or localhost). On the server PC open http://localhost:8080; on other devices it is not available over plain http.',
   laserUnsupported: 'This browser has no Web Bluetooth. On Windows/Android/macOS use Chrome or Edge; on iPhone/iPad neither Safari nor Chrome support it — use the Bluefy browser.',
-  laserHow: 'Turn on Bluetooth on the GLM, click Connect and pick it. Each measurement goes into the focused length field, the wall/room you are drawing (toward the cursor), or the selected wall.',
+  laserHow: 'Turn on Bluetooth on the GLM, click Connect and pick it. Tap the length field you want to measure — it stays aimed (highlighted) even after the keyboard closes, and after each reading the aim moves on to the next wall of the room, so you can measure Wall 1, Wall 2 … without touching the tablet. With nothing tapped, a reading goes to the selected room or wall, or to the wall/room you are drawing (toward the cursor).',
   laserNote: 'Protocol is community-documented (not an official Bosch SDK). Close the MeasureOn app first — the device accepts one connection.',
 };
 type Dict = typeof en;
@@ -72,11 +73,12 @@ const he: Dict = {
   ceiling: 'הנמכת תקרה', hintCeiling: 'גררו מלבן על האזור שבו התקרה נמוכה יותר.', ceilingHeightAt: 'גובה התקרה באזור', dropBy: 'הנמכה של', loweredArea: 'שטח הנמכות תקרה', soffitFaces: 'דפנות הנמכה',
   laser: 'מד לייזר (בלוטות\')', connect: 'התחבר', disconnect: 'התנתק', lastReading: 'מדידה אחרונה',
   laser_unsupported: 'בלוטות\' לא זמין', laser_idle: 'לא מחובר', laser_connecting: 'מתחבר…', laser_connected: 'מחובר', laser_reconnecting: 'מתחבר מחדש…', laser_error: 'שגיאה',
+  laserNext: 'המדידה הבאה', laserAimAuto: 'השדה שתקישו עליו, או מה שנבחר', release: 'שחרר', laserAdvance: 'אחרי כל מדידה לכוון לקיר הבא',
   laserTarget_field: 'הוזן לשדה', laserTarget_drawing: 'מוקמה נקודת שרטוט', laserTarget_wall: 'נקבע אורך הקיר הנבחר', laserTarget_none: 'לא הוחל',
   laserTips: 'סגרו את MeasureOn בטלפון (או כבו בו בלוטות׳): המד מקבל חיבור אחד בלבד|אם ה-GLM מצומד ב-Windows (הגדרות > Bluetooth), הסירו אותו משם ונסו שוב|ודאו שהבלוטות׳ דלוק במד (סמל BT בתצוגה) ושהמד לא במצב שינה|לחצו שוב «התחבר»: ב-Windows זה מצליח לעיתים רק בניסיון השני',
   laserInsecure: 'דפדפנים מאפשרים בלוטות׳ רק בדף מאובטח (https:// או localhost). במחשב השרת פתחו http://localhost:8080; במכשירים אחרים דרך http רגיל זה לא זמין.',
   laserUnsupported: 'בדפדפן הזה אין Web Bluetooth. ב-Windows/אנדרואיד/macOS השתמשו ב-Chrome או Edge; באייפון ואייפד גם Safari וגם Chrome לא תומכים – השתמשו בדפדפן Bluefy.',
-  laserHow: 'הפעילו בלוטות\' במד, לחצו "התחבר" ובחרו אותו. כל מדידה נכנסת לשדה האורך הפעיל, לקיר/חדר שאתם משרטטים (לכיוון הסמן), או לקיר הנבחר.',
+  laserHow: 'הפעילו בלוטות\' במד, לחצו "התחבר" ובחרו אותו. הקישו על שדה האורך שאתם מודדים — הוא נשאר מכוון (מודגש) גם אחרי שהמקלדת נסגרת, ואחרי כל מדידה הכיוון עובר לקיר הבא של החדר, כך שאפשר למדוד קיר 1, קיר 2… בלי לגעת בטאבלט. בלי לבחור שדה, המדידה נכנסת לחדר או לקיר הנבחר, או לקיר/חדר שאתם משרטטים (לכיוון הסמן).',
   laserNote: 'הפרוטוקול מתועד ע"י הקהילה (לא SDK רשמי של בוש). סגרו קודם את אפליקציית MeasureOn – המכשיר מקבל חיבור אחד בלבד.',
 };
 

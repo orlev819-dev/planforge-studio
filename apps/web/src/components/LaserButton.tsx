@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLaser, connectLaser, disconnectLaser } from '../laser';
+import { useLaser, connectLaser, disconnectLaser, armLaserField, setLaserAdvance, aimLabel } from '../laser';
 import { useStore } from '../store';
 import { formatLength } from '../../../../packages/geometry/src/index';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
+import { Check } from './fields';
 
 export function LaserButton() {
   const { t } = useT();
   const l = useLaser();
   const unit = useStore((s) => s.project?.settings.unit ?? 'm');
+  const selection = useStore((s) => s.selection.join(','));
+  void selection; // the default aim follows the selection, so re-read it whenever that changes
+  const aim = aimLabel();
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement | null>(null);
   const pop = useRef<HTMLDivElement | null>(null);
@@ -49,6 +53,11 @@ export function LaserButton() {
             : l.status === 'connected' || l.status === 'reconnecting'
               ? <button className="btn" onClick={disconnectLaser}>{t('disconnect')}</button>
               : <button className="btn primary" data-testid="laser-connect" disabled={l.status === 'connecting'} onClick={() => void connectLaser()}>{t('connect')}</button>}
+          <p data-testid="laser-aim">
+            {t('laserNext')}: <b>{aim || t('laserAimAuto')}</b>
+            {l.armed && <button className="btn sm" data-testid="laser-aim-clear" onClick={() => armLaserField(null)}>{t('release')}</button>}
+          </p>
+          <Check label={t('laserAdvance')} checked={l.advance} testId="laser-advance" onChange={setLaserAdvance} />
           {l.last && <p data-testid="laser-last">{t('lastReading')}: <b>{formatLength(l.last.m, unit, 3)}</b> → {t(`laserTarget_${l.last.target}` as 'laserTarget_none')}</p>}
           {l.status === 'error' && <ul className="hint-text" data-testid="laser-tips">{t('laserTips').split('|').map((x) => <li key={x}>{x}</li>)}</ul>}
           {l.log.length > 0 && <details open={l.status === 'error'}><summary className="sm">Log</summary><pre className="laser-log" data-testid="laser-log">{l.log.join('\n')}</pre></details>}
